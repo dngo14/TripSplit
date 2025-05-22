@@ -1,8 +1,8 @@
 
 "use client";
 
-import type React from 'react';
-import { useState } from 'react';
+import type React from 'react'; // Keep this for type-only imports if needed elsewhere
+import { useState, useEffect } from 'react'; // Import useEffect directly
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { MapPin, Home, CalendarDays, NotebookText, PlusCircle, Save } from 'lucide-react';
+import { MapPin, Home, CalendarDays, NotebookText, PlusCircle, Save, Edit3 } from 'lucide-react'; // Added Edit3
 import type { ItineraryItem } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,9 +23,9 @@ interface ItineraryFormDialogProps {
   onUpdateItineraryItem?: (updatedItem: ItineraryItem) => void; // Optional: for editing
 }
 
-export function ItineraryFormDialog({ 
-  isOpen, 
-  onOpenChange, 
+export function ItineraryFormDialog({
+  isOpen,
+  onOpenChange,
   onAddItineraryItem,
   itemToEdit,
   onUpdateItineraryItem
@@ -38,7 +38,7 @@ export function ItineraryFormDialog({
 
   const isEditing = !!itemToEdit;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isEditing && itemToEdit) {
       setPlaceName(itemToEdit.placeName);
       setAddress(itemToEdit.address);
@@ -68,7 +68,7 @@ export function ItineraryFormDialog({
     } else {
       onAddItineraryItem(itemData);
     }
-    
+
     // Reset form fields after successful submission
     if (!isEditing) { // Only reset if adding, not editing (dialog closes on edit)
         setPlaceName('');
@@ -84,7 +84,7 @@ export function ItineraryFormDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center">
-            {isEditing ? <Edit3 className="mr-2 h-6 w-6" /> : <CalendarPlus className="mr-2 h-6 w-6" />}
+            {isEditing ? <Edit3 className="mr-2 h-6 w-6" /> : <PlusCircle className="mr-2 h-6 w-6" />} {/* Changed CalendarPlus to PlusCircle for consistency with PRD, and Edit3 for editing */}
             {isEditing ? 'Edit Itinerary Item' : 'Add New Itinerary Item'}
           </DialogTitle>
         </DialogHeader>
@@ -130,8 +130,8 @@ export function ItineraryFormDialog({
                 />
                 {/* Basic time input, can be improved with a dedicated time picker */}
                 <div className="p-2 border-t">
-                  <Input 
-                    type="time" 
+                  <Input
+                    type="time"
                     value={visitDate ? format(visitDate, "HH:mm") : ""}
                     onChange={(e) => {
                         const [hours, minutes] = e.target.value.split(':').map(Number);
