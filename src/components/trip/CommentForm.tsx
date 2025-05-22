@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -9,8 +10,8 @@ import type { Member } from '@/lib/types';
 
 interface CommentFormProps {
   expenseId: string;
-  members: Member[]; // Needed to select current user or if comments are tied to a user
-  currentUserId: string; // Assuming there's a way to know the current user
+  members: Member[]; 
+  currentUserId: string; 
   onAddComment: (expenseId: string, authorId: string, text: string) => void;
 }
 
@@ -27,9 +28,12 @@ export function CommentForm({ expenseId, members, currentUserId, onAddComment }:
     }
   };
 
-  if (!currentUser) {
-    return <p className="text-xs text-muted-foreground">Login or select user to comment.</p>;
-  }
+  // The check for currentUser is now handled in ExpenseItem, 
+  // so this component assumes it will only be rendered if a user can comment.
+  // If direct rendering is possible, uncomment the check below:
+  // if (!currentUser) {
+  //   return <p className="text-xs text-muted-foreground">Select user to comment.</p>;
+  // }
 
   return (
     <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
@@ -40,9 +44,10 @@ export function CommentForm({ expenseId, members, currentUserId, onAddComment }:
         rows={1}
         className="flex-grow text-sm"
       />
-      <Button type="submit" size="sm" variant="outline">
+      <Button type="submit" size="sm" variant="outline" disabled={!text.trim() || !currentUser}>
         <MessageSquarePlus className="mr-1 h-4 w-4" /> Post
       </Button>
     </form>
   );
 }
+

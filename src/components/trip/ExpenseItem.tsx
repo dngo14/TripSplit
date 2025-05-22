@@ -1,22 +1,26 @@
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { Expense, Member, Comment } from '@/lib/types';
-import { User, CalendarDays, Tag, MessageSquare, DollarSign, Split } from 'lucide-react';
+import type { Expense, Member } from '@/lib/types';
+import { User, CalendarDays, Tag, MessageSquare, DollarSign, Split, Edit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CommentForm } from './CommentForm';
 import { ScrollArea } from '../ui/scroll-area';
+import { Button } from '../ui/button';
 
 interface ExpenseItemProps {
   expense: Expense;
   members: Member[];
   tripCurrency: string;
-  currentUserId: string; // For comment form
+  currentUserId: string;
   onAddComment: (expenseId: string, authorId: string, text: string) => void;
+  onDeleteExpense: (expenseId: string) => void;
+  onEditExpense: (expense: Expense) => void;
 }
 
-export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onAddComment }: ExpenseItemProps) {
+export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onAddComment, onDeleteExpense, onEditExpense }: ExpenseItemProps) {
   const paidByMember = members.find(member => member.id === expense.paidById);
 
   const getSplitDescription = () => {
@@ -28,60 +32,81 @@ export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onA
         const involvedNames = expense.splitDetails
           .map(sd => members.find(m => m.id === sd.memberId)?.name)
           .filter(Boolean);
-        if (involvedNames.length === members.length) return "Split equally (all)";
-        return `Split equally (${involvedNames.length} members)`;
+        if (involvedNames.length === members.length && members.length > 0) return "Split equally (all)";
+        if (involvedNames.length === 0 && members.length > 0) return "Split equally (all)"; // Covers case where splitDetails is empty array but means all
+        if (involvedNames.length > 0) return `Split equally (${involvedNames.length} members)`;
+        return "Split equally"; // Fallback if logic is tricky
       case 'byAmount':
         return "Split by amount";
       case 'byPercentage':
         return "Split by percentage";
       default:
-        return "Split equally (all)"; // Fallback for older data
+        return "Split info N/A"; 
     }
   };
+  
+  const canComment = !!currentUserId && members.some(m => m.id === currentUserId);
+
 
   return (
     <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow duration-200">
-      <CardHeader>
-        <CardTitle className="text-lg flex justify-between items-center">
-          <span>{expense.description}</span>
-          <div className="flex items-center space-x-2">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-lg flex-grow mr-2">{expense.description}</CardTitle>
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEditExpense(expense)}>
+              <Edit className="h-4 w-4" />
+              <span className="sr-only">Edit expense</span>
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDeleteExpense(expense.id)}>
+              <Trash2 className="h-4 w-4" />
+              <span className="sr-only">Delete expense</span>
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 items-center pt-1">
             <Badge variant={expense.category ? "secondary" : "outline"} className="text-xs whitespace-nowrap">
-              {expense.category || "Uncategorized"} <Tag className="ml-1 h-3 w-3"/>
+              <Tag className="mr-1 h-3 w-3"/> {expense.category || "Uncategorized"}
             </Badge>
              <Badge variant="outline" className="text-xs whitespace-nowrap">
               <Split className="mr-1 h-3 w-3"/> {getSplitDescription()}
             </Badge>
-          </div>
-        </CardTitle>
+        </div>
         <CardDescription className="text-xs flex flex-wrap gap-x-4 gap-y-1 pt-1">
           <span className="flex items-center"><DollarSign className="mr-1 h-3 w-3" /> {expense.amount.toFixed(2)} {tripCurrency}</span>
           {paidByMember && <span className="flex items-center"><User className="mr-1 h-3 w-3" /> Paid by: {paidByMember.name}</span>}
           <span className="flex items-center"><CalendarDays className="mr-1 h-3 w-3" /> {format(new Date(expense.date), "MMM d, yyyy")}</span>
         </CardDescription>
       </CardHeader>
-      {expense.comments.length > 0 && (
-        <CardContent className="pt-0 pb-2">
-          <h4 className="text-sm font-medium mb-1 flex items-center"><MessageSquare className="mr-1 h-4 w-4 text-muted-foreground" /> Comments:</h4>
-          <ScrollArea className="h-[60px] p-1 rounded-md bg-muted/30">
-            <ul className="space-y-1 text-xs">
-              {expense.comments.map((comment) => (
-                <li key={comment.id} className="bg-background/50 p-1.5 rounded">
-                  <strong>{comment.authorName}:</strong> {comment.text} 
-                  <span className="text-muted-foreground text-[10px] ml-1">({format(new Date(comment.createdAt), "p")})</span>
-                </li>
-              ))}
-            </ul>
-          </ScrollArea>
-        </CardContent>
-      )}
-      <CardFooter className="pt-0">
-        <CommentForm 
-          expenseId={expense.id} 
-          members={members} 
-          currentUserId={currentUserId} 
-          onAddComment={onAddComment} 
-        />
-      </CardFooter>
+      
+      <CardContent className="pt-2 pb-2">
+        {expense.comments.length > 0 && (
+          <>
+            <h4 className="text-sm font-medium mb-1 flex items-center"><MessageSquare className="mr-1 h-4 w-4 text-muted-foreground" /> Comments:</h4>
+            <ScrollArea className="h-[60px] p-1 rounded-md bg-muted/30 mb-2">
+              <ul className="space-y-1 text-xs">
+                {expense.comments.map((comment) => (
+                  <li key={comment.id} className="bg-background/50 p-1.5 rounded">
+                    <strong>{comment.authorName}:</strong> {comment.text} 
+                    <span className="text-muted-foreground text-[10px] ml-1">({format(new Date(comment.createdAt), "p")})</span>
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
+          </>
+        )}
+         { canComment ? (
+            <CommentForm 
+              expenseId={expense.id} 
+              members={members} 
+              currentUserId={currentUserId} 
+              onAddComment={onAddComment} 
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground pt-1">Select your user profile to add comments.</p>
+          )}
+      </CardContent>
     </Card>
   );
 }
+

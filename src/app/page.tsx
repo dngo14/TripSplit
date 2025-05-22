@@ -9,7 +9,7 @@ import { ExpenseList } from '@/components/trip/ExpenseList';
 import { SettlementSummary } from '@/components/trip/SettlementSummary';
 import { ChatRoom } from '@/components/trip/ChatRoom';
 import { TripSettings } from '@/components/trip/TripSettings';
-import type { AppState, TripData, Member, Expense, Comment, ChatMessage, SplitType, SplitDetail } from '@/lib/types';
+import type { AppState, TripData, Member, Expense, Comment, ChatMessage } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
@@ -18,9 +18,11 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSignIcon as CurrencyIcon } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2 } from 'lucide-react';
 
-const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2'; // Increment version for new data structure
+const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2';
 
 export default function TripPage() {
   const [appState, setAppState] = useState<AppState>(INITIAL_APP_STATE);
@@ -29,6 +31,8 @@ export default function TripPage() {
   const [isCreateTripDialogOpen, setIsCreateTripDialogOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
   const [newTripCurrency, setNewTripCurrency] = useState(CURRENCIES[0]);
+  const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
+  const [isDeleteConfirmationDialogOpen, setIsDeleteConfirmationDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const activeTrip = useMemo(() => {
@@ -50,7 +54,6 @@ export default function TripPage() {
             createdAt: new Date(exp.createdAt),
             date: new Date(exp.date),
             comments: exp.comments.map(c => ({...c, createdAt: new Date(c.createdAt)})),
-            // Ensure new fields have defaults if missing from old data
             splitType: exp.splitType || 'equally', 
             splitDetails: exp.splitDetails || [],
           })),
@@ -64,14 +67,26 @@ export default function TripPage() {
           const initiallyActiveTrip = parsedData.trips.find(t => t.id === parsedData.activeTripId);
           if (initiallyActiveTrip && initiallyActiveTrip.members.length > 0) {
              setCurrentUserId(initiallyActiveTrip.members[0].id);
-          } else {
+          } else if (initiallyActiveTrip && initiallyActiveTrip.members.length === 0) {
+            setCurrentUserId('');
+          } else if (!initiallyActiveTrip && parsedData.trips.length > 0) { // Active trip not found, select first
+            handleSelectTrip(parsedData.trips[0].id, parsedData.trips[0].members);
+          }
+           else {
             setCurrentUserId('');
           }
         }
       } catch (error) {
         console.error("Failed to parse saved app state:", error);
-        // Potentially migrate old data or clear if unparseable
-        // localStorage.removeItem(LOCAL_STORAGE_KEY); 
+        toast({ title: "Error loading data", description: "Could not load saved trip data. Starting fresh.", variant: "destructive"});
+        localStorage.removeItem(LOCAL_STORAGE_KEY); 
+        setAppState(INITIAL_APP_STATE); // Reset to initial state if parsing fails
+        setCurrentUserId('');
+      }
+    } else {
+      // No saved data, ensure currentUserId is clear if there's no active trip or members
+       if (!activeTrip || activeTrip.members.length === 0) {
+        setCurrentUserId('');
       }
     }
   }, []);
@@ -84,19 +99,30 @@ export default function TripPage() {
 
   useEffect(() => {
     if (isClient && appState.trips.length > 0 && !appState.activeTripId) {
-      handleSelectTrip(appState.trips[0].id, appState.trips[0].members);
+      const firstTrip = appState.trips[0];
+      handleSelectTrip(firstTrip.id, firstTrip.members);
+    } else if (isClient && appState.trips.length === 0) {
+      // No trips, clear active trip and user
+      setAppState(prev => ({ ...prev, activeTripId: null }));
+      setCurrentUserId('');
     }
   }, [appState.trips, appState.activeTripId, isClient]);
 
 
-  const updateActiveTrip = (updater: (trip: TripData) => TripData) => {
+  const updateActiveTrip = (updater: (trip: TripData) => TripData | null) => {
     setAppState(prev => {
       if (!prev.activeTripId) return prev;
+      const updatedTrips = prev.trips.map(trip => {
+        if (trip.id === prev.activeTripId) {
+          const result = updater(trip);
+          return result; // This can be null if the trip itself is deleted, though not handled here
+        }
+        return trip;
+      }).filter(Boolean) as TripData[]; // Filter out nulls if a trip was deleted
+
       return {
         ...prev,
-        trips: prev.trips.map(trip =>
-          trip.id === prev.activeTripId ? updater(trip) : trip
-        ),
+        trips: updatedTrips,
       };
     });
   };
@@ -152,11 +178,10 @@ export default function TripPage() {
   const handleRemoveMember = (id: string) => {
     if (!activeTrip) return;
     updateActiveTrip(trip => {
-      // Check if member is involved in any expense splits or paid for any expense
       const isPayer = trip.expenses.some(exp => exp.paidById === id);
       const isInvolvedInSplit = trip.expenses.some(exp => 
         exp.splitDetails.some(detail => detail.memberId === id) || 
-        (exp.splitType === 'equally' && exp.splitDetails.length === 0) // if equally split among all
+        (exp.splitType === 'equally' && exp.splitDetails.length === 0 && trip.members.some(m => m.id === id)) // if equally split among all check this member is part of all
       );
 
       if (isPayer || isInvolvedInSplit) {
@@ -184,7 +209,36 @@ export default function TripPage() {
     updateActiveTrip(trip => ({ ...trip, expenses: [...trip.expenses, newExpense] }));
     toast({ title: "Expense Added", description: `${expenseData.description} for ${expenseData.amount} ${activeTrip.currency} added to "${activeTrip.tripName}".`});
   };
+
+  const handleRequestDeleteExpense = (expenseId: string) => {
+    setExpenseToDeleteId(expenseId);
+    setIsDeleteConfirmationDialogOpen(true);
+  };
+
+  const handleConfirmDeleteExpense = () => {
+    if (!activeTrip || !expenseToDeleteId) return;
+    const expenseDescription = activeTrip.expenses.find(exp => exp.id === expenseToDeleteId)?.description || "Expense";
+    updateActiveTrip(trip => ({
+      ...trip,
+      expenses: trip.expenses.filter(exp => exp.id !== expenseToDeleteId),
+    }));
+    toast({ title: "Expense Deleted", description: `"${expenseDescription}" has been removed.` });
+    setIsDeleteConfirmationDialogOpen(false);
+    setExpenseToDeleteId(null);
+  };
+
+  const handleCancelDelete = () => {
+    setIsDeleteConfirmationDialogOpen(false);
+    setExpenseToDeleteId(null);
+  };
   
+  const handleEditExpense = (expense: Expense) => {
+    // Placeholder for edit functionality
+    toast({ title: "Edit Feature", description: `Editing "${expense.description}" is not yet implemented.` });
+    console.log("Attempting to edit expense:", expense);
+    // In a full implementation, you'd likely open a dialog pre-filled with expense data.
+  };
+
   const handleAddComment = (expenseId: string, authorId: string, text: string) => {
     if (!activeTrip) return;
     const author = activeTrip.members.find(m => m.id === authorId);
@@ -331,66 +385,98 @@ export default function TripPage() {
         )}
 
         {activeTrip && (
-          <>
-            <TripSettings
-              tripName={activeTrip.tripName}
-              onTripNameChange={handleTripNameChange}
-              currency={activeTrip.currency}
-              onCurrencyChange={handleCurrencyChange}
-            />
+          <Tabs defaultValue="activity" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="manage" className="flex items-center gap-2"><Settings className="h-4 w-4"/> Manage Trip</TabsTrigger>
+              <TabsTrigger value="activity" className="flex items-center gap-2"><Activity className="h-4 w-4"/> Activity Log</TabsTrigger>
+            </TabsList>
 
-            {activeTrip.members.length > 0 && (
-              <div className="my-4 max-w-xs">
-                <Label htmlFor="currentUser" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are:</Label>
-                <Select value={currentUserId} onValueChange={setCurrentUserId}>
-                  <SelectTrigger id="currentUser">
-                    <SelectValue placeholder="Select your user profile" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeTrip.members.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <TabsContent value="manage" className="space-y-6">
+              <TripSettings
+                tripName={activeTrip.tripName}
+                onTripNameChange={handleTripNameChange}
+                currency={activeTrip.currency}
+                onCurrencyChange={handleCurrencyChange}
+              />
+              <MemberManager members={activeTrip.members} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember}/>
+            </TabsContent>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1 space-y-6 flex flex-col">
-                <MemberManager members={activeTrip.members} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember}/>
-                <ExpenseForm members={activeTrip.members} onAddExpense={handleAddExpense} tripCurrency={activeTrip.currency} />
-              </div>
+            <TabsContent value="activity">
+              {activeTrip.members.length > 0 && (
+                <div className="my-4 max-w-xs">
+                  <Label htmlFor="currentUser" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are:</Label>
+                  <Select value={currentUserId} onValueChange={setCurrentUserId} disabled={activeTrip.members.length === 0}>
+                    <SelectTrigger id="currentUser">
+                      <SelectValue placeholder="Select your user profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeTrip.members.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+               {activeTrip.members.length === 0 && (
+                  <p className="my-4 text-sm text-muted-foreground">Add members in the 'Manage Trip' tab to participate.</p>
+               )}
 
-              <div className="lg:col-span-1 min-h-[600px]">
-                 <ExpenseList 
-                    expenses={activeTrip.expenses} 
-                    members={activeTrip.members} 
-                    tripCurrency={activeTrip.currency}
-                    currentUserId={currentUserId}
-                    onAddComment={handleAddComment}
-                  />
-              </div>
 
-              <div className="lg:col-span-1 space-y-6 flex flex-col">
-                <SettlementSummary settlements={settlements} tripCurrency={activeTrip.currency} />
-                <div className="flex-grow min-h-[400px]">
-                  <ChatRoom 
-                    messages={activeTrip.chatMessages}
-                    members={activeTrip.members}
-                    currentUserId={currentUserId}
-                    onSendMessage={handleSendMessage}
-                  />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 space-y-6 flex flex-col">
+                  <ExpenseForm members={activeTrip.members} onAddExpense={handleAddExpense} tripCurrency={activeTrip.currency} />
+                </div>
+
+                <div className="lg:col-span-1 min-h-[600px]">
+                   <ExpenseList 
+                      expenses={activeTrip.expenses} 
+                      members={activeTrip.members} 
+                      tripCurrency={activeTrip.currency}
+                      currentUserId={currentUserId}
+                      onAddComment={handleAddComment}
+                      onDeleteExpense={handleRequestDeleteExpense}
+                      onEditExpense={handleEditExpense}
+                    />
+                </div>
+
+                <div className="lg:col-span-1 space-y-6 flex flex-col">
+                  <SettlementSummary settlements={settlements} tripCurrency={activeTrip.currency} />
+                  <div className="flex-grow min-h-[400px]">
+                    <ChatRoom 
+                      messages={activeTrip.chatMessages}
+                      members={activeTrip.members}
+                      currentUserId={currentUserId}
+                      onSendMessage={handleSendMessage}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </>
+            </TabsContent>
+          </Tabs>
         )}
       </main>
       <footer className="text-center p-4 text-muted-foreground text-sm border-t">
         TripSplit &copy; {new Date().getFullYear()}
       </footer>
+
+      <AlertDialog open={isDeleteConfirmationDialogOpen} onOpenChange={setIsDeleteConfirmationDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center"><Trash2 className="mr-2 h-5 w-5 text-destructive"/>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this expense? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteExpense} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,9 +13,11 @@ interface ExpenseListProps {
   tripCurrency: string;
   currentUserId: string;
   onAddComment: (expenseId: string, authorId: string, text: string) => void;
+  onDeleteExpense: (expenseId: string) => void;
+  onEditExpense: (expense: Expense) => void;
 }
 
-export function ExpenseList({ expenses, members, tripCurrency, currentUserId, onAddComment }: ExpenseListProps) {
+export function ExpenseList({ expenses, members, tripCurrency, currentUserId, onAddComment, onDeleteExpense, onEditExpense }: ExpenseListProps) {
   return (
     <Card className="shadow-lg h-full flex flex-col">
       <CardHeader>
@@ -23,13 +26,13 @@ export function ExpenseList({ expenses, members, tripCurrency, currentUserId, on
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden">
-        <ScrollArea className="h-full pr-3"> {/* Adjust height as needed, pr-3 for scrollbar */}
+        <ScrollArea className="h-full pr-3">
           {expenses.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-muted-foreground text-center py-10">No expenses logged yet.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-0"> {/* Reduce space between items if needed */}
               {expenses.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((expense) => (
                 <ExpenseItem 
                   key={expense.id} 
@@ -38,6 +41,8 @@ export function ExpenseList({ expenses, members, tripCurrency, currentUserId, on
                   tripCurrency={tripCurrency} 
                   currentUserId={currentUserId}
                   onAddComment={onAddComment}
+                  onDeleteExpense={onDeleteExpense}
+                  onEditExpense={onEditExpense}
                 />
               ))}
             </div>
@@ -47,3 +52,4 @@ export function ExpenseList({ expenses, members, tripCurrency, currentUserId, on
     </Card>
   );
 }
+
