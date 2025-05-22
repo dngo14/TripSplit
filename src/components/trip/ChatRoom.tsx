@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -9,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ChatMessage, Member } from '@/lib/types';
 import { MessageCircle, Send } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, getAvatarData } from '@/lib/utils';
 
 interface ChatRoomProps {
   messages: ChatMessage[];
@@ -52,18 +53,23 @@ export function ChatRoom({ messages, members, currentUserId, onSendMessage }: Ch
           {messages.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">No messages yet. Start the conversation!</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-4"> {/* Increased spacing for avatar */}
               {messages.map((msg) => {
                 const isCurrentUser = msg.senderId === currentUserId;
+                const senderMember = members.find(m => m.id === msg.senderId);
+                const avatarData = getAvatarData(senderMember?.name);
                 return (
-                  <li key={msg.id} className={cn("flex flex-col", isCurrentUser ? "items-end" : "items-start")}>
+                  <li key={msg.id} className={cn("flex gap-2.5", isCurrentUser ? "flex-row-reverse" : "flex-row")}>
+                     <div className={`mt-1 w-8 h-8 rounded-full ${avatarData.bgColor} flex items-center justify-center text-white font-semibold text-xs flex-shrink-0`}>
+                        {avatarData.initials}
+                      </div>
                     <div className={cn(
-                      "max-w-[70%] p-2 rounded-lg shadow", 
-                      isCurrentUser ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                      "max-w-[70%] p-2 rounded-lg shadow flex flex-col", 
+                      isCurrentUser ? "bg-primary text-primary-foreground rounded-br-none" : "bg-secondary text-secondary-foreground rounded-bl-none"
                     )}>
-                      <p className="text-xs font-medium mb-0.5">{msg.senderName}</p>
+                      {!isCurrentUser && <p className="text-xs font-medium mb-0.5">{msg.senderName}</p>}
                       <p className="text-sm">{msg.text}</p>
-                      <p className="text-xs opacity-70 mt-0.5 text-right">{format(new Date(msg.createdAt), "p")}</p>
+                      <p className="text-xs opacity-70 mt-0.5 self-end">{format(new Date(msg.createdAt), "p")}</p>
                     </div>
                   </li>
                 );

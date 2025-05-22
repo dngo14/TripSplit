@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { MessageSquarePlus } from 'lucide-react';
 import type { Member } from '@/lib/types';
+import { getAvatarData } from '@/lib/utils'; // Import the avatar utility
 
 interface CommentFormProps {
   expenseId: string;
@@ -19,6 +20,7 @@ export function CommentForm({ expenseId, members, currentUserId, onAddComment }:
   const [text, setText] = useState('');
   
   const currentUser = members.find(m => m.id === currentUserId);
+  const avatarData = getAvatarData(currentUser?.name);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,21 +30,20 @@ export function CommentForm({ expenseId, members, currentUserId, onAddComment }:
     }
   };
 
-  // The check for currentUser is now handled in ExpenseItem, 
-  // so this component assumes it will only be rendered if a user can comment.
-  // If direct rendering is possible, uncomment the check below:
-  // if (!currentUser) {
-  //   return <p className="text-xs text-muted-foreground">Select user to comment.</p>;
-  // }
-
   return (
-    <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
+    <form onSubmit={handleSubmit} className="mt-2 flex gap-2 items-start"> {/* items-start for alignment */}
+      {currentUser && (
+         <div className={`mt-1.5 w-7 h-7 rounded-full ${avatarData.bgColor} flex items-center justify-center text-white font-semibold text-xs flex-shrink-0`}>
+            {avatarData.initials}
+          </div>
+      )}
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Add a comment..."
         rows={1}
         className="flex-grow text-sm"
+        disabled={!currentUser}
       />
       <Button type="submit" size="sm" variant="outline" disabled={!text.trim() || !currentUser}>
         <MessageSquarePlus className="mr-1 h-4 w-4" /> Post
@@ -50,4 +51,3 @@ export function CommentForm({ expenseId, members, currentUserId, onAddComment }:
     </form>
   );
 }
-

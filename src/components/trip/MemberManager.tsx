@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { UserPlus, Users, X } from 'lucide-react';
 import type { Member } from '@/lib/types';
+import { getAvatarData } from '@/lib/utils';
 
 interface MemberManagerProps {
   members: Member[];
@@ -51,14 +53,22 @@ export function MemberManager({ members, onAddMember, onRemoveMember }: MemberMa
             <p className="text-muted-foreground text-center py-4">No members yet. Add some!</p>
           ) : (
             <ul className="space-y-2">
-              {members.map((member) => (
-                <li key={member.id} className="flex items-center justify-between p-2 bg-background rounded-md shadow-sm">
-                  <span>{member.name}</span>
-                  <Button variant="ghost" size="icon" onClick={() => onRemoveMember(member.id)} aria-label={`Remove ${member.name}`}>
-                    <X className="h-4 w-4 text-destructive" />
-                  </Button>
-                </li>
-              ))}
+              {members.map((member) => {
+                const { initials, bgColor } = getAvatarData(member.name);
+                return (
+                  <li key={member.id} className="flex items-center justify-between p-2 bg-background rounded-md shadow-sm">
+                    <div className="flex items-center">
+                      <div className={`w-8 h-8 rounded-full ${bgColor} flex items-center justify-center text-white font-semibold text-sm mr-3`}>
+                        {initials}
+                      </div>
+                      <span>{member.name}</span>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => onRemoveMember(member.id)} aria-label={`Remove ${member.name}`}>
+                      <X className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </ScrollArea>
