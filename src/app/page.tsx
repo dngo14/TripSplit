@@ -26,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon, LogIn } from 'lucide-react';
+import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon, LogIn, Coins } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const LOCAL_STORAGE_KEY_PREFIX = 'tripSplitAppState_v2_user_'; 
@@ -471,18 +471,23 @@ export default function TripPage() {
   
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background px-4">
         <AppHeader />
-        <div className="p-8 rounded-lg shadow-xl bg-card text-card-foreground text-center space-y-4">
-            <h2 className="text-2xl font-semibold">Welcome to TripSplit!</h2>
-            <p className="text-muted-foreground">Please sign in to manage your trips.</p>
-            <Button onClick={signInWithGoogle} size="lg">
+        <main className="flex flex-col items-center justify-center flex-grow w-full">
+          <div className="w-full max-w-md p-8 space-y-6 rounded-xl shadow-2xl bg-card text-card-foreground">
+            <div className="flex flex-col items-center space-y-2">
+              <Coins className="h-12 w-12 text-primary" />
+              <h2 className="text-3xl font-bold tracking-tight">Welcome to TripSplit!</h2>
+            </div>
+            <p className="text-center text-muted-foreground">
+              Sign in with your Google account to start planning your trips and splitting expenses with ease.
+            </p>
+            <Button onClick={signInWithGoogle} size="lg" className="w-full">
                 <LogIn className="mr-2 h-5 w-5" /> Sign In with Google
             </Button>
-        </div>
-         <footer className="text-center p-4 text-muted-foreground text-sm fixed bottom-0 w-full border-t">
-            TripSplit &copy; {new Date().getFullYear()}
-        </footer>
+          </div>
+        </main>
+        {/* Footer removed from sign-in specific view for simplicity */}
       </div>
     );
   }
