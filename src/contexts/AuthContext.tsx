@@ -49,7 +49,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       let description = "Could not sign in with Google.";
       if (error.code === 'auth/unauthorized-domain') {
-        description = "This domain is not authorized for Google Sign-In. Please check your Firebase project's authorized domains list and ensure 'localhost' (and your deployment domain) are added. It may take a few minutes for changes to propagate.";
+        const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'your current app domain';
+        description = `This domain (${currentOrigin}) is not authorized for Google Sign-In. Please go to your Firebase project settings (Authentication > Sign-in method > Authorized domains) and add this exact domain. It may take a few minutes for changes to propagate.`;
       } else if (error.code === 'auth/popup-closed-by-user') {
         description = "Sign-in cancelled. The pop-up was closed before sign-in completed.";
       } else if (error.message) {
@@ -60,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: "Sign In Failed", 
         description: description,
         variant: "destructive",
-        duration: 9000, // Longer duration for error messages
+        duration: 15000, // Longer duration for this specific error message
       });
       setLoading(false); // Reset loading on error
     }
@@ -102,4 +103,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-
