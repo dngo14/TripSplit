@@ -4,7 +4,7 @@ export interface Member {
   name: string;
 }
 
-export interface Comment {
+export interface Comment { // For Expenses
   id: string;
   expenseId: string;
   authorId: string; // Member ID
@@ -44,6 +44,14 @@ export interface ChatMessage {
   createdAt: Date;
 }
 
+export interface ItineraryComment {
+  id: string;
+  authorId: string; // Member ID
+  authorName: string; // Member Name
+  text: string;
+  createdAt: Date;
+}
+
 export interface ItineraryItem {
   id: string;
   placeName: string;
@@ -51,6 +59,7 @@ export interface ItineraryItem {
   visitDate: Date;
   notes: string;
   createdAt: Date;
+  comments: ItineraryComment[]; // Added comments for itinerary items
 }
 
 export interface TripData {
@@ -60,7 +69,7 @@ export interface TripData {
   expenses: Expense[];
   chatMessages: ChatMessage[];
   currency: string; // e.g., "USD", "EUR"
-  itinerary: ItineraryItem[]; // Added itinerary
+  itinerary: ItineraryItem[];
 }
 
 export interface AppState {

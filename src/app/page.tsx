@@ -14,7 +14,7 @@ import { ItineraryList } from '@/components/trip/ItineraryList';
 import { ItineraryFormDialog } from '@/components/trip/ItineraryFormDialog';
 import { EditItineraryItemDialog } from '@/components/trip/EditItineraryItemDialog';
 
-import type { AppState, TripData, Member, Expense, Comment, ChatMessage, ItineraryItem } from '@/lib/types';
+import type { AppState, TripData, Member, Expense, Comment as ExpenseComment, ChatMessage, ItineraryItem, ItineraryComment } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
@@ -77,11 +77,12 @@ export default function TripPage() {
             receiptImageUri: exp.receiptImageUri || undefined,
           })),
           chatMessages: trip.chatMessages.map(msg => ({...msg, createdAt: new Date(msg.createdAt)})),
-          itinerary: trip.itinerary?.map(item => ({ // Add ?. for safety
+          itinerary: trip.itinerary?.map(item => ({ 
             ...item,
-            visitDate: new Date(item.visitDate), // Ensure date parsing
+            visitDate: new Date(item.visitDate), 
             createdAt: new Date(item.createdAt),
-          })) || [], // Default to empty array if itinerary doesn't exist
+            comments: item.comments?.map(c => ({...c, createdAt: new Date(c.createdAt)})) || [], // Parse itinerary comments
+          })) || [], 
         }));
 
         setAppState(parsedData);
@@ -112,7 +113,7 @@ export default function TripPage() {
         setCurrentUserId('');
       }
     }
-  }, [toast]); // Removed activeTrip from dependencies to avoid loop on init
+  }, [toast]); 
 
   useEffect(() => {
     if (isClient) {
@@ -285,12 +286,12 @@ export default function TripPage() {
   };
 
 
-  const handleAddComment = (expenseId: string, authorId: string, text: string) => {
+  const handleAddExpenseComment = (expenseId: string, authorId: string, text: string) => {
     if (!activeTrip) return;
     const author = activeTrip.members.find(m => m.id === authorId);
     if (!author) return;
 
-    const newComment: Comment = {
+    const newComment: ExpenseComment = {
       id: crypto.randomUUID(),
       expenseId,
       authorId,
@@ -332,12 +333,13 @@ export default function TripPage() {
   };
 
   // --- Itinerary Handlers ---
-  const handleAddItineraryItem = (itemData: Omit<ItineraryItem, 'id' | 'createdAt'>) => {
+  const handleAddItineraryItem = (itemData: Omit<ItineraryItem, 'id' | 'createdAt' | 'comments'>) => {
     if (!activeTrip) return;
     const newItem: ItineraryItem = {
       ...itemData,
       id: crypto.randomUUID(),
       createdAt: new Date(),
+      comments: [], // Initialize with empty comments
     };
     updateActiveTrip(trip => ({ ...trip, itinerary: [...trip.itinerary, newItem] }));
     toast({ title: "Itinerary Item Added", description: `"${itemData.placeName}" added to itinerary.` });
@@ -365,6 +367,27 @@ export default function TripPage() {
     setItemTypeToDelete('itinerary');
     setIsDeleteConfirmationDialogOpen(true);
   };
+  
+  const handleAddItineraryComment = (itineraryItemId: string, authorId: string, text: string) => {
+    if (!activeTrip) return;
+    const author = activeTrip.members.find(m => m.id === authorId);
+    if (!author) return;
+
+    const newComment: ItineraryComment = {
+      id: crypto.randomUUID(),
+      authorId,
+      authorName: author.name,
+      text,
+      createdAt: new Date(),
+    };
+    updateActiveTrip(trip => ({
+      ...trip,
+      itinerary: trip.itinerary.map(item =>
+        item.id === itineraryItemId ? { ...item, comments: [...item.comments, newComment] } : item
+      ),
+    }));
+  };
+
 
   const settlements = useMemo(() => {
     if (!isClient || !activeTrip) return [];
@@ -467,10 +490,10 @@ export default function TripPage() {
 
         {activeTrip && (
           <Tabs defaultValue="activity" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-4 mb-6"> {/* Updated to 4 cols */}
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-4 mb-6">
               <TabsTrigger value="manage" className="flex items-center gap-2"><Settings className="h-4 w-4"/> Manage Trip</TabsTrigger>
               <TabsTrigger value="activity" className="flex items-center gap-2"><Activity className="h-4 w-4"/> Activity Log</TabsTrigger>
-              <TabsTrigger value="itinerary" className="flex items-center gap-2"><MapPin className="h-4 w-4"/> Itinerary</TabsTrigger> {/* New Tab */}
+              <TabsTrigger value="itinerary" className="flex items-center gap-2"><MapPin className="h-4 w-4"/> Itinerary</TabsTrigger>
               <TabsTrigger value="chat" className="flex items-center gap-2"><MessageSquare className="h-4 w-4"/> Trip Chat</TabsTrigger>
             </TabsList>
 
@@ -517,7 +540,7 @@ export default function TripPage() {
                       members={activeTrip.members} 
                       tripCurrency={activeTrip.currency}
                       currentUserId={currentUserId}
-                      onAddComment={handleAddComment}
+                      onAddComment={handleAddExpenseComment}
                       onDeleteExpense={handleRequestDeleteExpense}
                       onEditExpense={handleOpenEditExpenseDialog}
                     />
@@ -526,15 +549,38 @@ export default function TripPage() {
             </TabsContent>
             
             <TabsContent value="itinerary" className="space-y-6">
+              {activeTrip.members.length > 0 && (
+                <div className="my-4 max-w-xs">
+                  <Label htmlFor="currentUserItinerary" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are (for comments):</Label>
+                   <Select value={currentUserId} onValueChange={setCurrentUserId} disabled={activeTrip.members.length === 0}>
+                    <SelectTrigger id="currentUserItinerary">
+                      <SelectValue placeholder="Select your user profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeTrip.members.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {activeTrip.members.length === 0 && (
+                  <p className="my-4 text-sm text-muted-foreground">Add members and select your user profile to add comments to itinerary items.</p>
+               )}
               <div className="flex justify-end mb-4">
-                <Button onClick={() => setIsAddItineraryItemDialogOpen(true)}>
+                <Button onClick={() => setIsAddItineraryItemDialogOpen(true)} disabled={!currentUserId && activeTrip.members.length > 0}>
                   <CalendarPlus className="mr-2 h-5 w-5" /> Add Itinerary Item
                 </Button>
               </div>
               <ItineraryList
                 itineraryItems={activeTrip.itinerary}
+                members={activeTrip.members}
+                currentUserId={currentUserId}
                 onEditItem={handleOpenEditItineraryItemDialog}
                 onDeleteItem={handleRequestDeleteItineraryItem}
+                onAddComment={handleAddItineraryComment}
               />
             </TabsContent>
 

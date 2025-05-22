@@ -3,26 +3,46 @@
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import type { ItineraryItem } from '@/lib/types';
-import { MapPin, Home, CalendarDays, NotebookText, Edit3, Trash2 } from 'lucide-react';
+import type { ItineraryItem, Member, ItineraryComment } from '@/lib/types';
+import { MapPin, Home, CalendarDays, NotebookText, Edit3, Trash2, MessageSquare, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ItineraryCommentForm } from './ItineraryCommentForm';
+import { getAvatarData } from '@/lib/utils';
 
 interface ItineraryItemCardProps {
   item: ItineraryItem;
+  members: Member[];
+  currentUserId: string;
   onEdit: (item: ItineraryItem) => void;
   onDelete: (itemId: string) => void;
+  onAddComment: (itineraryItemId: string, authorId: string, text: string) => void;
 }
 
-export function ItineraryItemCard({ item, onEdit, onDelete }: ItineraryItemCardProps) {
+export function ItineraryItemCard({ item, members, currentUserId, onEdit, onDelete, onAddComment }: ItineraryItemCardProps) {
+  
+  const generateMapsLink = (platform: 'google' | 'apple') => {
+    const query = encodeURIComponent(item.address || item.placeName);
+    if (!query) return "#";
+
+    if (platform === 'google') {
+      return `https://www.google.com/maps/search/?api=1&query=${query}`;
+    } else { // apple
+      return `http://maps.apple.com/?q=${query}`;
+    }
+  };
+
+  const canComment = !!currentUserId && members.some(m => m.id === currentUserId);
+
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow duration-200">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg flex items-center">
-            <MapPin className="mr-2 h-5 w-5 text-primary" />
-            {item.placeName}
+            <MapPin className="mr-2 h-5 w-5 text-primary flex-shrink-0" />
+            <span className="flex-grow mr-2">{item.placeName}</span>
           </CardTitle>
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1 flex-shrink-0">
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(item)}>
               <Edit3 className="h-4 w-4" />
               <span className="sr-only">Edit item</span>
@@ -52,10 +72,62 @@ export function ItineraryItemCard({ item, onEdit, onDelete }: ItineraryItemCardP
             <p className="whitespace-pre-wrap">{item.notes}</p>
           </div>
         )}
-        {!item.address && !item.notes && (
+        {(!item.address && !item.notes) && (
             <p className="text-sm text-muted-foreground italic">No additional details provided.</p>
         )}
+
+        {(item.address || item.placeName) && (
+          <div className="flex items-center gap-2 pt-2">
+            <Button variant="outline" size="sm" asChild className="text-xs">
+              <a href={generateMapsLink('google')} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1 h-3 w-3" /> Google Maps
+              </a>
+            </Button>
+            <Button variant="outline" size="sm" asChild className="text-xs">
+              <a href={generateMapsLink('apple')} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1 h-3 w-3" /> Apple Maps
+              </a>
+            </Button>
+          </div>
+        )}
       </CardContent>
+
+      <CardContent className="pt-2 pb-2 border-t">
+        {item.comments.length > 0 && (
+          <>
+            <h4 className="text-sm font-medium mb-1 flex items-center"><MessageSquare className="mr-1 h-4 w-4 text-muted-foreground" /> Comments:</h4>
+            <ScrollArea className="h-[60px] p-1 rounded-md bg-muted/30 mb-2">
+              <ul className="space-y-1 text-xs">
+                {item.comments.map((comment) => {
+                    const commentAuthorAvatar = getAvatarData(comment.authorName);
+                    return (
+                      <li key={comment.id} className="bg-background/50 p-1.5 rounded flex items-start gap-1.5">
+                        <div className={`mt-0.5 w-5 h-5 rounded-full ${commentAuthorAvatar.bgColor} flex items-center justify-center text-white font-semibold text-[10px] flex-shrink-0`}>
+                          {commentAuthorAvatar.initials}
+                        </div>
+                        <div>
+                          <strong>{comment.authorName}:</strong> {comment.text} 
+                          <span className="text-muted-foreground text-[10px] ml-1">({format(new Date(comment.createdAt), "p")})</span>
+                        </div>
+                      </li>
+                    );
+                })}
+              </ul>
+            </ScrollArea>
+          </>
+        )}
+         { canComment ? (
+            <ItineraryCommentForm 
+              itineraryItemId={item.id} 
+              members={members} 
+              currentUserId={currentUserId} 
+              onAddComment={onAddComment} 
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground pt-1">Select your user profile to add comments.</p>
+          )}
+      </CardContent>
+
        <CardFooter className="text-xs text-muted-foreground pt-2 border-t">
         Added on: {format(new Date(item.createdAt), "MMM d, yyyy")}
       </CardFooter>

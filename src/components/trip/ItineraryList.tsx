@@ -3,17 +3,20 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ItineraryItemCard } from './ItineraryItemCard'; // Renamed from ItineraryItem
-import type { ItineraryItem } from '@/lib/types';
+import { ItineraryItemCard } from './ItineraryItemCard';
+import type { ItineraryItem, Member } from '@/lib/types';
 import { MapPin, CalendarSearch } from 'lucide-react';
 
 interface ItineraryListProps {
   itineraryItems: ItineraryItem[];
+  members: Member[];
+  currentUserId: string;
   onEditItem: (item: ItineraryItem) => void;
   onDeleteItem: (itemId: string) => void;
+  onAddComment: (itineraryItemId: string, authorId: string, text: string) => void;
 }
 
-export function ItineraryList({ itineraryItems, onEditItem, onDeleteItem }: ItineraryListProps) {
+export function ItineraryList({ itineraryItems, members, currentUserId, onEditItem, onDeleteItem, onAddComment }: ItineraryListProps) {
   const sortedItems = [...itineraryItems].sort((a,b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
 
   return (
@@ -24,7 +27,7 @@ export function ItineraryList({ itineraryItems, onEditItem, onDeleteItem }: Itin
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden">
-        <ScrollArea className="h-[600px] pr-3"> {/* Adjusted height */}
+        <ScrollArea className="h-[600px] pr-3">
           {sortedItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-10">
               <CalendarSearch className="h-16 w-16 text-muted-foreground mb-4" />
@@ -37,8 +40,11 @@ export function ItineraryList({ itineraryItems, onEditItem, onDeleteItem }: Itin
                 <ItineraryItemCard 
                   key={item.id} 
                   item={item} 
+                  members={members}
+                  currentUserId={currentUserId}
                   onEdit={onEditItem}
                   onDelete={onDeleteItem}
+                  onAddComment={onAddComment}
                 />
               ))}
             </div>
