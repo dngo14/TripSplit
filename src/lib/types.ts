@@ -44,6 +44,15 @@ export interface ChatMessage {
   createdAt: Date;
 }
 
+export interface ItineraryItem {
+  id: string;
+  placeName: string;
+  address: string;
+  visitDate: Date;
+  notes: string;
+  createdAt: Date;
+}
+
 export interface TripData {
   id: string; // Unique ID for the trip
   tripName: string;
@@ -51,6 +60,7 @@ export interface TripData {
   expenses: Expense[];
   chatMessages: ChatMessage[];
   currency: string; // e.g., "USD", "EUR"
+  itinerary: ItineraryItem[]; // Added itinerary
 }
 
 export interface AppState {

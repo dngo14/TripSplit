@@ -10,7 +10,11 @@ import { SettlementSummary } from '@/components/trip/SettlementSummary';
 import { ChatRoom } from '@/components/trip/ChatRoom';
 import { TripSettings } from '@/components/trip/TripSettings';
 import { EditExpenseDialog } from '@/components/trip/EditExpenseDialog';
-import type { AppState, TripData, Member, Expense, Comment, ChatMessage } from '@/lib/types';
+import { ItineraryList } from '@/components/trip/ItineraryList';
+import { ItineraryFormDialog } from '@/components/trip/ItineraryFormDialog';
+import { EditItineraryItemDialog } from '@/components/trip/EditItineraryItemDialog';
+
+import type { AppState, TripData, Member, Expense, Comment, ChatMessage, ItineraryItem } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
@@ -21,9 +25,9 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare } from 'lucide-react';
+import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus } from 'lucide-react';
 
-const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2'; // Version kept same for now, existing data will adapt
+const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2'; 
 
 export default function TripPage() {
   const [appState, setAppState] = useState<AppState>(INITIAL_APP_STATE);
@@ -35,9 +39,17 @@ export default function TripPage() {
   
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
   const [isDeleteConfirmationDialogOpen, setIsDeleteConfirmationDialogOpen] = useState(false);
+  const [itemTypeToDelete, setItemTypeToDelete] = useState<'expense' | 'itinerary' | null>(null);
+
 
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [isEditExpenseDialogOpen, setIsEditExpenseDialogOpen] = useState(false);
+
+  const [isAddItineraryItemDialogOpen, setIsAddItineraryItemDialogOpen] = useState(false);
+  const [itineraryItemToEdit, setItineraryItemToEdit] = useState<ItineraryItem | null>(null);
+  const [isEditItineraryItemDialogOpen, setIsEditItineraryItemDialogOpen] = useState(false);
+  const [itineraryItemToDeleteId, setItineraryItemToDeleteId] = useState<string | null>(null);
+
 
   const { toast } = useToast();
 
@@ -62,9 +74,14 @@ export default function TripPage() {
             comments: exp.comments.map(c => ({...c, createdAt: new Date(c.createdAt)})),
             splitType: exp.splitType || 'equally', 
             splitDetails: exp.splitDetails || [],
-            receiptImageUri: exp.receiptImageUri || undefined, // Add this line
+            receiptImageUri: exp.receiptImageUri || undefined,
           })),
-          chatMessages: trip.chatMessages.map(msg => ({...msg, createdAt: new Date(msg.createdAt)}))
+          chatMessages: trip.chatMessages.map(msg => ({...msg, createdAt: new Date(msg.createdAt)})),
+          itinerary: trip.itinerary?.map(item => ({ // Add ?. for safety
+            ...item,
+            visitDate: new Date(item.visitDate), // Ensure date parsing
+            createdAt: new Date(item.createdAt),
+          })) || [], // Default to empty array if itinerary doesn't exist
         }));
 
         setAppState(parsedData);
@@ -95,7 +112,7 @@ export default function TripPage() {
         setCurrentUserId('');
       }
     }
-  }, [toast]);
+  }, [toast]); // Removed activeTrip from dependencies to avoid loop on init
 
   useEffect(() => {
     if (isClient) {
@@ -217,24 +234,38 @@ export default function TripPage() {
 
   const handleRequestDeleteExpense = (expenseId: string) => {
     setExpenseToDeleteId(expenseId);
+    setItemTypeToDelete('expense');
     setIsDeleteConfirmationDialogOpen(true);
   };
-
-  const handleConfirmDeleteExpense = () => {
-    if (!activeTrip || !expenseToDeleteId) return;
-    const expenseDescription = activeTrip.expenses.find(exp => exp.id === expenseToDeleteId)?.description || "Expense";
-    updateActiveTrip(trip => ({
-      ...trip,
-      expenses: trip.expenses.filter(exp => exp.id !== expenseToDeleteId),
-    }));
-    toast({ title: "Expense Deleted", description: `"${expenseDescription}" has been removed.` });
+  
+  const handleConfirmDelete = () => {
+    if (!activeTrip) return;
+    if (itemTypeToDelete === 'expense' && expenseToDeleteId) {
+      const expenseDescription = activeTrip.expenses.find(exp => exp.id === expenseToDeleteId)?.description || "Expense";
+      updateActiveTrip(trip => ({
+        ...trip,
+        expenses: trip.expenses.filter(exp => exp.id !== expenseToDeleteId),
+      }));
+      toast({ title: "Expense Deleted", description: `"${expenseDescription}" has been removed.` });
+      setExpenseToDeleteId(null);
+    } else if (itemTypeToDelete === 'itinerary' && itineraryItemToDeleteId) {
+      const itemDescription = activeTrip.itinerary.find(item => item.id === itineraryItemToDeleteId)?.placeName || "Itinerary item";
+      updateActiveTrip(trip => ({
+        ...trip,
+        itinerary: trip.itinerary.filter(item => item.id !== itineraryItemToDeleteId),
+      }));
+      toast({ title: "Itinerary Item Deleted", description: `"${itemDescription}" has been removed.` });
+      setItineraryItemToDeleteId(null);
+    }
     setIsDeleteConfirmationDialogOpen(false);
-    setExpenseToDeleteId(null);
+    setItemTypeToDelete(null);
   };
 
   const handleCancelDelete = () => {
     setIsDeleteConfirmationDialogOpen(false);
     setExpenseToDeleteId(null);
+    setItineraryItemToDeleteId(null);
+    setItemTypeToDelete(null);
   };
   
   const handleOpenEditExpenseDialog = (expense: Expense) => {
@@ -298,6 +329,41 @@ export default function TripPage() {
   const handleCurrencyChange = (currency: string) => {
     if (!activeTrip) return;
     updateActiveTrip(trip => ({ ...trip, currency: currency }));
+  };
+
+  // --- Itinerary Handlers ---
+  const handleAddItineraryItem = (itemData: Omit<ItineraryItem, 'id' | 'createdAt'>) => {
+    if (!activeTrip) return;
+    const newItem: ItineraryItem = {
+      ...itemData,
+      id: crypto.randomUUID(),
+      createdAt: new Date(),
+    };
+    updateActiveTrip(trip => ({ ...trip, itinerary: [...trip.itinerary, newItem] }));
+    toast({ title: "Itinerary Item Added", description: `"${itemData.placeName}" added to itinerary.` });
+    setIsAddItineraryItemDialogOpen(false);
+  };
+
+  const handleOpenEditItineraryItemDialog = (item: ItineraryItem) => {
+    setItineraryItemToEdit(item);
+    setIsEditItineraryItemDialogOpen(true);
+  };
+
+  const handleUpdateItineraryItem = (updatedItem: ItineraryItem) => {
+    if (!activeTrip) return;
+    updateActiveTrip(trip => ({
+      ...trip,
+      itinerary: trip.itinerary.map(item => item.id === updatedItem.id ? updatedItem : item)
+    }));
+    toast({ title: "Itinerary Item Updated", description: `"${updatedItem.placeName}" has been updated.` });
+    setIsEditItineraryItemDialogOpen(false);
+    setItineraryItemToEdit(null);
+  };
+  
+  const handleRequestDeleteItineraryItem = (itemId: string) => {
+    setItineraryItemToDeleteId(itemId);
+    setItemTypeToDelete('itinerary');
+    setIsDeleteConfirmationDialogOpen(true);
   };
 
   const settlements = useMemo(() => {
@@ -401,9 +467,10 @@ export default function TripPage() {
 
         {activeTrip && (
           <Tabs defaultValue="activity" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-4 mb-6"> {/* Updated to 4 cols */}
               <TabsTrigger value="manage" className="flex items-center gap-2"><Settings className="h-4 w-4"/> Manage Trip</TabsTrigger>
               <TabsTrigger value="activity" className="flex items-center gap-2"><Activity className="h-4 w-4"/> Activity Log</TabsTrigger>
+              <TabsTrigger value="itinerary" className="flex items-center gap-2"><MapPin className="h-4 w-4"/> Itinerary</TabsTrigger> {/* New Tab */}
               <TabsTrigger value="chat" className="flex items-center gap-2"><MessageSquare className="h-4 w-4"/> Trip Chat</TabsTrigger>
             </TabsList>
 
@@ -457,6 +524,19 @@ export default function TripPage() {
                 </div>
               </div>
             </TabsContent>
+            
+            <TabsContent value="itinerary" className="space-y-6">
+              <div className="flex justify-end mb-4">
+                <Button onClick={() => setIsAddItineraryItemDialogOpen(true)}>
+                  <CalendarPlus className="mr-2 h-5 w-5" /> Add Itinerary Item
+                </Button>
+              </div>
+              <ItineraryList
+                itineraryItems={activeTrip.itinerary}
+                onEditItem={handleOpenEditItineraryItemDialog}
+                onDeleteItem={handleRequestDeleteItineraryItem}
+              />
+            </TabsContent>
 
             <TabsContent value="chat">
               {activeTrip.members.length > 0 && (
@@ -500,12 +580,12 @@ export default function TripPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center"><Trash2 className="mr-2 h-5 w-5 text-destructive"/>Confirm Deletion</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this expense? This action cannot be undone.
+              Are you sure you want to delete this {itemTypeToDelete === 'expense' ? 'expense' : 'itinerary item'}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteExpense} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -520,6 +600,21 @@ export default function TripPage() {
           members={activeTrip.members}
           tripCurrency={activeTrip.currency}
           onUpdateExpense={handleUpdateExpense}
+        />
+      )}
+      {activeTrip && (
+        <ItineraryFormDialog
+          isOpen={isAddItineraryItemDialogOpen}
+          onOpenChange={setIsAddItineraryItemDialogOpen}
+          onAddItineraryItem={handleAddItineraryItem}
+        />
+      )}
+      {itineraryItemToEdit && activeTrip && (
+         <EditItineraryItemDialog
+          isOpen={isEditItineraryItemDialogOpen}
+          onOpenChange={setIsEditItineraryItemDialogOpen}
+          itemToEdit={itineraryItemToEdit}
+          onUpdateItineraryItem={handleUpdateItineraryItem}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+
 import type { TripData, AppState } from './types';
 
 export const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "INR"];
@@ -10,6 +11,7 @@ export function createInitialTripData(name: string, currency: string = "USD"): T
     expenses: [],
     chatMessages: [],
     currency: currency,
+    itinerary: [], // Initialize with empty itinerary
   };
 }
 
