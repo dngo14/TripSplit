@@ -1,7 +1,7 @@
 import { Coins } from 'lucide-react';
 
 interface HeaderProps {
-  tripName: string;
+  tripName?: string; // Optional now
 }
 
 export function AppHeader({ tripName }: HeaderProps) {
@@ -12,7 +12,8 @@ export function AppHeader({ tripName }: HeaderProps) {
           <Coins className="h-8 w-8" />
           <h1 className="text-2xl font-bold">TripSplit</h1>
         </div>
-        <span className="text-lg">{tripName}</span>
+        {tripName && <span className="text-lg">{tripName}</span>}
+        {!tripName && <span className="text-lg italic text-primary-foreground/80">No active trip</span>}
       </div>
     </header>
   );

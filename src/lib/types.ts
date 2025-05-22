@@ -32,11 +32,17 @@ export interface ChatMessage {
 }
 
 export interface TripData {
+  id: string; // Unique ID for the trip
   tripName: string;
   members: Member[];
   expenses: Expense[];
   chatMessages: ChatMessage[];
   currency: string; // e.g., "USD", "EUR"
+}
+
+export interface AppState {
+  trips: TripData[];
+  activeTripId: string | null;
 }
 
 export interface Settlement {
