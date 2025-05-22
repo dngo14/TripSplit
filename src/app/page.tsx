@@ -29,6 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
 import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon, LogIn, Coins, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -70,7 +71,6 @@ const prepareDataForFirestore = (data: any): any => {
   }
 
   // Check if 'data' is a plain object that should be recursed into.
-  // Object.prototype.isPrototypeOf(data) is another way, but this is common for simple objects
   if (typeof data === 'object' && data !== null && Object.getPrototypeOf(data) === Object.prototype) {
     const res: { [key: string]: any } = {};
     for (const key in data) {
@@ -134,7 +134,6 @@ export default function TripPage() {
       querySnapshot.forEach((docSnapshot) => {
         const rawData = docSnapshot.data();
         
-        // Ensure essential arrays and fields have default values if missing
         const tripDataWithGuaranteedArrays = {
           tripName: rawData.tripName || 'Untitled Trip',
           currency: rawData.currency || CURRENCIES[0],
@@ -144,7 +143,7 @@ export default function TripPage() {
           itinerary: Array.isArray(rawData.itinerary) ? rawData.itinerary.filter(i => i != null) : [],
           chatMessages: Array.isArray(rawData.chatMessages) ? rawData.chatMessages.filter(c => c != null) : [],
           memberUIDs: Array.isArray(rawData.memberUIDs) ? rawData.memberUIDs.filter(uid => uid != null) : [],
-          ...rawData, // Spread the rest of rawData to keep other fields
+          ...rawData, 
         };
         
         const tripDataWithDates = convertTimestampsToDates(tripDataWithGuaranteedArrays) as Omit<TripData, 'id'>;
@@ -168,13 +167,8 @@ export default function TripPage() {
              if(userAsMember) {
                 setCurrentUserId(userAsMember.id);
              } else if (newActiveTrip.members.length > 0 && newActiveTrip.members.some(m => m.id !== user.uid)) {
-                 // If logged-in user is not in the members list directly by UID,
-                 // but other members exist, pick the first one for now.
-                 // This might need refinement if user.uid should always be found or created.
                 setCurrentUserId(newActiveTrip.members[0].id);
              } else if (newActiveTrip.members.length > 0 && newActiveTrip.creatorUID === user.uid) {
-                // Fallback if logged-in user is creator but not explicitly in members list by UID.
-                 // This scenario should ideally be handled by ensuring creator is always in members list.
                 setCurrentUserId(user.uid);
              }
               else {
@@ -208,7 +202,6 @@ export default function TripPage() {
       if (userAsMember) {
         setCurrentUserId(userAsMember.id);
       } else if (selectedTrip.members.length > 0) {
-        // Fallback to first member if logged-in user isn't directly in list
         setCurrentUserId(selectedTrip.members[0].id);
       } else {
         setCurrentUserId('');
@@ -231,7 +224,7 @@ export default function TripPage() {
         newTripCurrency,
         user.uid,
         user.displayName || user.email || "Trip Creator",
-        user.email?.toLowerCase() // Store email as lowercase
+        user.email?.toLowerCase()
     );
 
     const tripDataForFirestore = prepareDataForFirestore(initialTripData);
@@ -242,7 +235,6 @@ export default function TripPage() {
       setNewTripName('');
       setNewTripCurrency(CURRENCIES[0]);
       setIsCreateTripDialogOpen(false);
-      // setCurrentUserId(user.uid); // Creator is automatically set as current user for actions
     } catch (error) {
       console.error("Error creating new trip in Firestore:", error);
       toast({ title: "Error Creating Trip", description: "Could not save the new trip to the database.", variant: "destructive"});
@@ -305,7 +297,6 @@ export default function TripPage() {
 
                 if (activeTrip.memberUIDs.includes(existingUserUID)) {
                     toast({ title: "Member Already Has Access", description: `"${existingUserData.displayName || existingUserData.name || name}" (email: ${email}) already has access to this trip. Their display details will be updated if necessary.`, duration: 7000 });
-                    // Optionally update their display name/email in members array if it changed
                     const memberInDisplayList = activeTrip.members.find(m => m.id === existingUserUID);
                     if (memberInDisplayList && (memberInDisplayList.name !== (existingUserData.displayName || existingUserData.name || name) || memberInDisplayList.email !== email)) {
                         const updatedDisplayMember: Member = { ...memberInDisplayList, name: existingUserData.displayName || existingUserData.name || name, email };
@@ -316,7 +307,6 @@ export default function TripPage() {
                     return;
                 }
 
-                // Registered user found, grant access by adding their UID
                 const memberToAdd: Member = { id: existingUserUID, name: existingUserData.displayName || existingUserData.name || name, email };
                 const preparedMemberToAdd = prepareDataForFirestore(memberToAdd);
                 await updateActiveTripInFirestore({ 
@@ -326,7 +316,6 @@ export default function TripPage() {
                 toast({ title: "Member Invited & Access Granted", description: `"${memberToAdd.name}" (email: ${email}) has been invited. They can now see and edit this trip when they log in.`, duration: 8000 });
 
             } else {
-                // No registered user found with this email
                 const newDisplayMemberRaw: Member = { id: crypto.randomUUID(), name, email };
                 const preparedNewDisplayMember = prepareDataForFirestore(newDisplayMemberRaw);
                 await updateActiveTripInFirestore({ members: arrayUnion(preparedNewDisplayMember) as any });
@@ -341,7 +330,6 @@ export default function TripPage() {
             toast({ title: "Error Adding Member", description: "Could not process member addition. Please try again.", variant: "destructive" });
         }
     } else {
-        // Adding member without email (for display/assignment only)
         const newDisplayMemberRaw: Member = { id: crypto.randomUUID(), name, email: undefined }; 
         const preparedNewDisplayMember = prepareDataForFirestore(newDisplayMemberRaw);
         await updateActiveTripInFirestore({ members: arrayUnion(preparedNewDisplayMember) as any });
@@ -814,13 +802,15 @@ export default function TripPage() {
 
         {activeTrip && user && (
           <Tabs defaultValue="activity" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 mb-6">
-              <TabsTrigger value="manage" className="flex items-center gap-2"><Settings className="h-4 w-4"/> Manage</TabsTrigger>
-              <TabsTrigger value="info" className="flex items-center gap-2"><InfoIcon className="h-4 w-4"/> Trip Info</TabsTrigger>
-              <TabsTrigger value="activity" className="flex items-center gap-2"><Activity className="h-4 w-4"/> Activity</TabsTrigger>
-              <TabsTrigger value="itinerary" className="flex items-center gap-2"><MapPin className="h-4 w-4"/> Itinerary</TabsTrigger>
-              <TabsTrigger value="chat" className="flex items-center gap-2"><MessageSquare className="h-4 w-4"/> Chat</TabsTrigger>
-            </TabsList>
+            <ScrollArea orientation="horizontal" className="pb-2.5">
+              <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground whitespace-nowrap mb-6">
+                <TabsTrigger value="manage" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Settings className="h-4 w-4"/> Manage</TabsTrigger>
+                <TabsTrigger value="info" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><InfoIcon className="h-4 w-4"/> Trip Info</TabsTrigger>
+                <TabsTrigger value="activity" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Activity className="h-4 w-4"/> Activity</TabsTrigger>
+                <TabsTrigger value="itinerary" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MapPin className="h-4 w-4"/> Itinerary</TabsTrigger>
+                <TabsTrigger value="chat" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MessageSquare className="h-4 w-4"/> Chat</TabsTrigger>
+              </TabsList>
+            </ScrollArea>
 
             <TabsContent value="manage" className="space-y-6">
               <TripSettings
@@ -1015,3 +1005,5 @@ export default function TripPage() {
 
 
     
+
+      
