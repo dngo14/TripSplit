@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { Expense, Member, Comment } from '@/lib/types';
-import { User, CalendarDays, Tag, MessageSquare, DollarSign } from 'lucide-react';
+import { User, CalendarDays, Tag, MessageSquare, DollarSign, Split } from 'lucide-react';
 import { format } from 'date-fns';
 import { CommentForm } from './CommentForm';
 import { ScrollArea } from '../ui/scroll-area';
@@ -19,16 +19,41 @@ interface ExpenseItemProps {
 export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onAddComment }: ExpenseItemProps) {
   const paidByMember = members.find(member => member.id === expense.paidById);
 
+  const getSplitDescription = () => {
+    switch (expense.splitType) {
+      case 'equally':
+        if (!expense.splitDetails || expense.splitDetails.length === 0) {
+          return "Split equally (all)";
+        }
+        const involvedNames = expense.splitDetails
+          .map(sd => members.find(m => m.id === sd.memberId)?.name)
+          .filter(Boolean);
+        if (involvedNames.length === members.length) return "Split equally (all)";
+        return `Split equally (${involvedNames.length} members)`;
+      case 'byAmount':
+        return "Split by amount";
+      case 'byPercentage':
+        return "Split by percentage";
+      default:
+        return "Split equally (all)"; // Fallback for older data
+    }
+  };
+
   return (
     <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow duration-200">
       <CardHeader>
         <CardTitle className="text-lg flex justify-between items-center">
           <span>{expense.description}</span>
-          <Badge variant={expense.category ? "secondary" : "outline"} className="text-xs whitespace-nowrap">
-            {expense.category || "Uncategorized"} <Tag className="ml-1 h-3 w-3"/>
-          </Badge>
+          <div className="flex items-center space-x-2">
+            <Badge variant={expense.category ? "secondary" : "outline"} className="text-xs whitespace-nowrap">
+              {expense.category || "Uncategorized"} <Tag className="ml-1 h-3 w-3"/>
+            </Badge>
+             <Badge variant="outline" className="text-xs whitespace-nowrap">
+              <Split className="mr-1 h-3 w-3"/> {getSplitDescription()}
+            </Badge>
+          </div>
         </CardTitle>
-        <CardDescription className="text-xs flex flex-wrap gap-x-4 gap-y-1">
+        <CardDescription className="text-xs flex flex-wrap gap-x-4 gap-y-1 pt-1">
           <span className="flex items-center"><DollarSign className="mr-1 h-3 w-3" /> {expense.amount.toFixed(2)} {tripCurrency}</span>
           {paidByMember && <span className="flex items-center"><User className="mr-1 h-3 w-3" /> Paid by: {paidByMember.name}</span>}
           <span className="flex items-center"><CalendarDays className="mr-1 h-3 w-3" /> {format(new Date(expense.date), "MMM d, yyyy")}</span>

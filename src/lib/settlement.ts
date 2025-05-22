@@ -1,4 +1,4 @@
-import type { Expense, Member, Settlement } from './types';
+import type { Expense, Member, Settlement, SplitDetail } from './types';
 
 export function calculateSettlements(expenses: Expense[], members: Member[]): Settlement[] {
   if (members.length === 0) {
@@ -11,27 +11,75 @@ export function calculateSettlements(expenses: Expense[], members: Member[]): Se
   });
 
   expenses.forEach(expense => {
-    memberBalances[expense.paidById] += expense.amount;
-  });
+    // The payer initially gets credited the full amount they paid
+    if (memberBalances[expense.paidById] !== undefined) {
+      memberBalances[expense.paidById] += expense.amount;
+    }
 
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const sharePerMember = totalExpenses / members.length;
+    const numTripMembers = members.length;
 
-  members.forEach(member => {
-    memberBalances[member.id] -= sharePerMember;
+    switch (expense.splitType) {
+      case 'equally':
+        let membersInEqualSplit: string[] = [];
+        if (expense.splitDetails && expense.splitDetails.length > 0) {
+          // Split among specified members in splitDetails
+          membersInEqualSplit = expense.splitDetails.map(sd => sd.memberId);
+        } else {
+          // Default to all trip members if splitDetails is empty for 'equally'
+          membersInEqualSplit = members.map(m => m.id);
+        }
+        
+        if (membersInEqualSplit.length > 0) {
+          const sharePerMemberForThisExpense = expense.amount / membersInEqualSplit.length;
+          membersInEqualSplit.forEach(memberId => {
+            if (memberBalances[memberId] !== undefined) {
+              memberBalances[memberId] -= sharePerMemberForThisExpense;
+            }
+          });
+        }
+        break;
+
+      case 'byAmount':
+        expense.splitDetails?.forEach(detail => {
+          if (memberBalances[detail.memberId] !== undefined && detail.amount !== undefined) {
+            memberBalances[detail.memberId] -= detail.amount;
+          }
+        });
+        break;
+
+      case 'byPercentage':
+        expense.splitDetails?.forEach(detail => {
+          if (memberBalances[detail.memberId] !== undefined && detail.percentage !== undefined) {
+            memberBalances[detail.memberId] -= expense.amount * (detail.percentage / 100);
+          }
+        });
+        break;
+      
+      default: // Fallback for old data or undefined splitType, treat as 'equally' among all
+        if (numTripMembers > 0) {
+          const defaultShare = expense.amount / numTripMembers;
+          members.forEach(member => {
+            if (memberBalances[member.id] !== undefined) {
+              memberBalances[member.id] -= defaultShare;
+            }
+          });
+        }
+        break;
+    }
   });
 
   const debtors: { id: string; amount: number }[] = [];
   const creditors: { id: string; amount: number }[] = [];
 
-  members.forEach(member => {
-    if (memberBalances[member.id] < -0.01) { // Using a small epsilon for float comparison
-      debtors.push({ id: member.id, amount: -memberBalances[member.id] });
-    } else if (memberBalances[member.id] > 0.01) {
-      creditors.push({ id: member.id, amount: memberBalances[member.id] });
+  Object.keys(memberBalances).forEach(memberId => {
+    const balance = memberBalances[memberId];
+    if (balance < -0.001) { // Use a small epsilon for floating point comparisons
+      debtors.push({ id: memberId, amount: -balance });
+    } else if (balance > 0.001) {
+      creditors.push({ id: memberId, amount: balance });
     }
   });
-
+  
   debtors.sort((a, b) => b.amount - a.amount);
   creditors.sort((a, b) => b.amount - a.amount);
 
@@ -44,7 +92,7 @@ export function calculateSettlements(expenses: Expense[], members: Member[]): Se
     const creditor = creditors[creditorIndex];
     const amountToSettle = Math.min(debtor.amount, creditor.amount);
 
-    if (amountToSettle > 0.01) { // Only settle if amount is significant
+    if (amountToSettle > 0.001) { 
       const debtorMember = members.find(m => m.id === debtor.id);
       const creditorMember = members.find(m => m.id === creditor.id);
 
@@ -60,13 +108,12 @@ export function calculateSettlements(expenses: Expense[], members: Member[]): Se
       creditor.amount -= amountToSettle;
     }
 
-    if (debtor.amount < 0.01) {
+    if (debtor.amount < 0.001) {
       debtorIndex++;
     }
-    if (creditor.amount < 0.01) {
+    if (creditor.amount < 0.001) {
       creditorIndex++;
     }
   }
-
   return settlements;
 }

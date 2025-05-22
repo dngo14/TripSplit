@@ -12,6 +12,15 @@ export interface Comment {
   createdAt: Date;
 }
 
+export type SplitType = 'equally' | 'byAmount' | 'byPercentage';
+
+export interface SplitDetail {
+  memberId: string;
+  amount?: number; // For 'byAmount'
+  percentage?: number; // For 'byPercentage'
+  // For 'equally', only memberId is needed if not splitting among all
+}
+
 export interface Expense {
   id: string;
   description: string;
@@ -20,7 +29,9 @@ export interface Expense {
   category?: string;
   comments: Comment[];
   createdAt: Date;
-  date: Date; 
+  date: Date;
+  splitType: SplitType;
+  splitDetails: SplitDetail[]; // Details of how the expense is split
 }
 
 export interface ChatMessage {

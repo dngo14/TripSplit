@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -8,7 +9,7 @@ import { ExpenseList } from '@/components/trip/ExpenseList';
 import { SettlementSummary } from '@/components/trip/SettlementSummary';
 import { ChatRoom } from '@/components/trip/ChatRoom';
 import { TripSettings } from '@/components/trip/TripSettings';
-import type { AppState, TripData, Member, Expense, Comment, ChatMessage } from '@/lib/types';
+import type { AppState, TripData, Member, Expense, Comment, ChatMessage, SplitType, SplitDetail } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
@@ -19,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSignIcon as CurrencyIcon } from 'lucide-react';
 
-const LOCAL_STORAGE_KEY = 'tripSplitAppState';
+const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2'; // Increment version for new data structure
 
 export default function TripPage() {
   const [appState, setAppState] = useState<AppState>(INITIAL_APP_STATE);
@@ -31,7 +32,7 @@ export default function TripPage() {
   const { toast } = useToast();
 
   const activeTrip = useMemo(() => {
-    if (!isClient) return undefined; // Prevent mismatch during SSR/hydration
+    if (!isClient) return undefined; 
     return appState.trips.find(trip => trip.id === appState.activeTripId);
   }, [appState.trips, appState.activeTripId, isClient]);
 
@@ -41,14 +42,17 @@ export default function TripPage() {
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData) as AppState;
-        // Ensure dates are properly parsed if stored as strings
+        
         parsedData.trips = parsedData.trips.map(trip => ({
           ...trip,
           expenses: trip.expenses.map(exp => ({
             ...exp,
             createdAt: new Date(exp.createdAt),
             date: new Date(exp.date),
-            comments: exp.comments.map(c => ({...c, createdAt: new Date(c.createdAt)}))
+            comments: exp.comments.map(c => ({...c, createdAt: new Date(c.createdAt)})),
+            // Ensure new fields have defaults if missing from old data
+            splitType: exp.splitType || 'equally', 
+            splitDetails: exp.splitDetails || [],
           })),
           chatMessages: trip.chatMessages.map(msg => ({...msg, createdAt: new Date(msg.createdAt)}))
         }));
@@ -66,7 +70,8 @@ export default function TripPage() {
         }
       } catch (error) {
         console.error("Failed to parse saved app state:", error);
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        // Potentially migrate old data or clear if unparseable
+        // localStorage.removeItem(LOCAL_STORAGE_KEY); 
       }
     }
   }, []);
@@ -77,7 +82,6 @@ export default function TripPage() {
     }
   }, [appState, isClient]);
 
-  // Auto-select first trip if no active trip is set but trips exist
   useEffect(() => {
     if (isClient && appState.trips.length > 0 && !appState.activeTripId) {
       handleSelectTrip(appState.trips[0].id, appState.trips[0].members);
@@ -121,7 +125,7 @@ export default function TripPage() {
       trips: [...prev.trips, newTrip],
       activeTripId: newTrip.id,
     }));
-    setCurrentUserId(''); // Reset current user for the new trip
+    setCurrentUserId(''); 
     setNewTripName('');
     setNewTripCurrency(CURRENCIES[0]);
     setIsCreateTripDialogOpen(false);
@@ -137,7 +141,7 @@ export default function TripPage() {
     const newMember: Member = { id: crypto.randomUUID(), name };
     updateActiveTrip(trip => {
       const updatedMembers = [...trip.members, newMember];
-      if (updatedMembers.length === 1) { // If this is the first member, set as current user
+      if (updatedMembers.length === 1) { 
         setCurrentUserId(newMember.id);
       }
       return { ...trip, members: updatedMembers };
@@ -148,11 +152,18 @@ export default function TripPage() {
   const handleRemoveMember = (id: string) => {
     if (!activeTrip) return;
     updateActiveTrip(trip => {
-      const memberInvolved = trip.expenses.some(exp => exp.paidById === id);
-      if (memberInvolved) {
-        toast({ title: "Cannot remove member", description: "This member has paid for expenses and cannot be removed.", variant: "destructive"});
+      // Check if member is involved in any expense splits or paid for any expense
+      const isPayer = trip.expenses.some(exp => exp.paidById === id);
+      const isInvolvedInSplit = trip.expenses.some(exp => 
+        exp.splitDetails.some(detail => detail.memberId === id) || 
+        (exp.splitType === 'equally' && exp.splitDetails.length === 0) // if equally split among all
+      );
+
+      if (isPayer || isInvolvedInSplit) {
+        toast({ title: "Cannot remove member", description: "This member is involved in expenses (paid or part of a split) and cannot be removed.", variant: "destructive"});
         return trip;
       }
+
       const updatedMembers = trip.members.filter(member => member.id !== id);
       if (currentUserId === id) {
         setCurrentUserId(updatedMembers.length > 0 ? updatedMembers[0].id : '');
