@@ -21,21 +21,20 @@ interface TripInfoProps {
 
 export function TripInfo({ tripData, onTripInfoChange }: TripInfoProps) {
   const [accommodationAddress, setAccommodationAddress] = useState(tripData.accommodationAddress || '');
-  const [tripStartDate, setTripStartDate] = useState<Date | undefined>(tripData.tripStartDate);
-  const [tripEndDate, setTripEndDate] = useState<Date | undefined>(tripData.tripEndDate);
+  const [tripStartDate, setTripStartDate] = useState<Date | undefined>(tripData.tripStartDate ? new Date(tripData.tripStartDate as any) : undefined);
+  const [tripEndDate, setTripEndDate] = useState<Date | undefined>(tripData.tripEndDate ? new Date(tripData.tripEndDate as any) : undefined);
   const [flightDetails, setFlightDetails] = useState(tripData.flightDetails || '');
   const [notes, setNotes] = useState(tripData.notes || '');
 
-  // Sync local state if tripData prop changes (e.g., when switching active trips)
   useEffect(() => {
     setAccommodationAddress(tripData.accommodationAddress || '');
-    setTripStartDate(tripData.tripStartDate);
-    setTripEndDate(tripData.tripEndDate);
+    setTripStartDate(tripData.tripStartDate ? new Date(tripData.tripStartDate as any) : undefined);
+    setTripEndDate(tripData.tripEndDate ? new Date(tripData.tripEndDate as any) : undefined);
     setFlightDetails(tripData.flightDetails || '');
     setNotes(tripData.notes || '');
   }, [tripData]);
 
-  const handleSave = <K extends keyof TripData>(field: K, value: TripData[K]) => {
+  const handleSave = <K extends keyof TripData>(field: K, value: TripData[K] | null) => {
     onTripInfoChange(field, value);
   };
 
@@ -78,8 +77,8 @@ export function TripInfo({ tripData, onTripInfoChange }: TripInfoProps) {
                   mode="single"
                   selected={tripStartDate}
                   onSelect={(date) => {
-                    setTripStartDate(date);
-                    if (date) handleSave('tripStartDate', date);
+                    setTripStartDate(date); // date can be undefined if cleared
+                    handleSave('tripStartDate', date === undefined ? null : date);
                   }}
                   initialFocus
                 />
@@ -104,8 +103,8 @@ export function TripInfo({ tripData, onTripInfoChange }: TripInfoProps) {
                   mode="single"
                   selected={tripEndDate}
                   onSelect={(date) => {
-                     setTripEndDate(date);
-                     if (date) handleSave('tripEndDate', date);
+                     setTripEndDate(date); // date can be undefined if cleared
+                     handleSave('tripEndDate', date === undefined ? null : date);
                   }}
                   disabled={(date) =>
                     tripStartDate ? date < tripStartDate : false
@@ -140,8 +139,9 @@ export function TripInfo({ tripData, onTripInfoChange }: TripInfoProps) {
             rows={4}
           />
         </div>
-        {/* Removed explicit save button as changes are saved on blur or date selection */}
       </CardContent>
     </Card>
   );
 }
+
+    
