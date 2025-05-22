@@ -17,7 +17,7 @@ interface ExpenseItemProps {
   currentUserId: string;
   onAddComment: (expenseId: string, authorId: string, text: string) => void;
   onDeleteExpense: (expenseId: string) => void;
-  onEditExpense: (expense: Expense) => void;
+  onEditExpense: (expense: Expense) => void; // Changed to accept Expense object
 }
 
 export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onAddComment, onDeleteExpense, onEditExpense }: ExpenseItemProps) {
@@ -29,19 +29,19 @@ export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onA
         if (!expense.splitDetails || expense.splitDetails.length === 0) {
           return "Split equally (all)";
         }
-        const involvedNames = expense.splitDetails
-          .map(sd => members.find(m => m.id === sd.memberId)?.name)
-          .filter(Boolean);
-        if (involvedNames.length === members.length && members.length > 0) return "Split equally (all)";
-        if (involvedNames.length === 0 && members.length > 0) return "Split equally (all)"; // Covers case where splitDetails is empty array but means all
-        if (involvedNames.length > 0) return `Split equally (${involvedNames.length} members)`;
-        return "Split equally"; // Fallback if logic is tricky
+        // Check if all members are part of the split or if it's a subset
+        const involvedMemberIds = new Set(expense.splitDetails.map(sd => sd.memberId));
+        if (members.length > 0 && involvedMemberIds.size === members.length && members.every(m => involvedMemberIds.has(m.id))) {
+            return "Split equally (all)";
+        }
+        if (involvedMemberIds.size > 0) return `Split equally (${involvedMemberIds.size} members)`;
+        return "Split equally (all)"; // Fallback if splitDetails empty but implies all
       case 'byAmount':
         return "Split by amount";
       case 'byPercentage':
         return "Split by percentage";
       default:
-        return "Split info N/A"; 
+        return "Split equally (all)"; // Default for older data or undefined
     }
   };
   
@@ -109,4 +109,3 @@ export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onA
     </Card>
   );
 }
-

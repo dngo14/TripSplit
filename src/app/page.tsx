@@ -9,6 +9,7 @@ import { ExpenseList } from '@/components/trip/ExpenseList';
 import { SettlementSummary } from '@/components/trip/SettlementSummary';
 import { ChatRoom } from '@/components/trip/ChatRoom';
 import { TripSettings } from '@/components/trip/TripSettings';
+import { EditExpenseDialog } from '@/components/trip/EditExpenseDialog'; // Import the new dialog
 import type { AppState, TripData, Member, Expense, Comment, ChatMessage } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
 import { calculateSettlements } from '@/lib/settlement';
@@ -31,8 +32,13 @@ export default function TripPage() {
   const [isCreateTripDialogOpen, setIsCreateTripDialogOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
   const [newTripCurrency, setNewTripCurrency] = useState(CURRENCIES[0]);
+  
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
   const [isDeleteConfirmationDialogOpen, setIsDeleteConfirmationDialogOpen] = useState(false);
+
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
+  const [isEditExpenseDialogOpen, setIsEditExpenseDialogOpen] = useState(false);
+
   const { toast } = useToast();
 
   const activeTrip = useMemo(() => {
@@ -69,7 +75,7 @@ export default function TripPage() {
              setCurrentUserId(initiallyActiveTrip.members[0].id);
           } else if (initiallyActiveTrip && initiallyActiveTrip.members.length === 0) {
             setCurrentUserId('');
-          } else if (!initiallyActiveTrip && parsedData.trips.length > 0) { // Active trip not found, select first
+          } else if (!initiallyActiveTrip && parsedData.trips.length > 0) { 
             handleSelectTrip(parsedData.trips[0].id, parsedData.trips[0].members);
           }
            else {
@@ -80,16 +86,15 @@ export default function TripPage() {
         console.error("Failed to parse saved app state:", error);
         toast({ title: "Error loading data", description: "Could not load saved trip data. Starting fresh.", variant: "destructive"});
         localStorage.removeItem(LOCAL_STORAGE_KEY); 
-        setAppState(INITIAL_APP_STATE); // Reset to initial state if parsing fails
+        setAppState(INITIAL_APP_STATE); 
         setCurrentUserId('');
       }
     } else {
-      // No saved data, ensure currentUserId is clear if there's no active trip or members
        if (!activeTrip || activeTrip.members.length === 0) {
         setCurrentUserId('');
       }
     }
-  }, []);
+  }, [toast]); // Added toast to dependency array as it's used in catch
 
   useEffect(() => {
     if (isClient) {
@@ -102,7 +107,6 @@ export default function TripPage() {
       const firstTrip = appState.trips[0];
       handleSelectTrip(firstTrip.id, firstTrip.members);
     } else if (isClient && appState.trips.length === 0) {
-      // No trips, clear active trip and user
       setAppState(prev => ({ ...prev, activeTripId: null }));
       setCurrentUserId('');
     }
@@ -232,10 +236,22 @@ export default function TripPage() {
     setExpenseToDeleteId(null);
   };
   
-  const handleEditExpense = (expense: Expense) => {
-    toast({ title: "Edit Feature", description: `Editing "${expense.description}" is not yet implemented.` });
-    console.log("Attempting to edit expense:", expense);
+  const handleOpenEditExpenseDialog = (expense: Expense) => {
+    setExpenseToEdit(expense);
+    setIsEditExpenseDialogOpen(true);
   };
+
+  const handleUpdateExpense = (updatedExpense: Expense) => {
+    if (!activeTrip) return;
+    updateActiveTrip(trip => ({
+      ...trip,
+      expenses: trip.expenses.map(exp => exp.id === updatedExpense.id ? updatedExpense : exp)
+    }));
+    toast({ title: "Expense Updated", description: `"${updatedExpense.description}" has been updated.` });
+    setIsEditExpenseDialogOpen(false);
+    setExpenseToEdit(null);
+  };
+
 
   const handleAddComment = (expenseId: string, authorId: string, text: string) => {
     if (!activeTrip) return;
@@ -427,7 +443,7 @@ export default function TripPage() {
                   <ExpenseForm members={activeTrip.members} onAddExpense={handleAddExpense} tripCurrency={activeTrip.currency} />
                   <SettlementSummary settlements={settlements} tripCurrency={activeTrip.currency} />
                 </div>
-                <div className="lg:col-span-2 min-h-[600px]"> {/* ExpenseList now spans 2 columns */}
+                <div className="lg:col-span-2 min-h-[600px]"> 
                    <ExpenseList 
                       expenses={activeTrip.expenses} 
                       members={activeTrip.members} 
@@ -435,7 +451,7 @@ export default function TripPage() {
                       currentUserId={currentUserId}
                       onAddComment={handleAddComment}
                       onDeleteExpense={handleRequestDeleteExpense}
-                      onEditExpense={handleEditExpense}
+                      onEditExpense={handleOpenEditExpenseDialog}
                     />
                 </div>
               </div>
@@ -462,7 +478,7 @@ export default function TripPage() {
               {activeTrip.members.length === 0 && !currentUserId &&(
                   <p className="my-4 text-sm text-muted-foreground">Add members and select your user profile in 'Manage Trip' or 'Activity Log' tab to chat.</p>
                )}
-              <div className="h-[600px]"> {/* Ensure chat room has enough height */}
+              <div className="h-[600px]"> 
                 <ChatRoom 
                   messages={activeTrip.chatMessages}
                   members={activeTrip.members}
@@ -494,6 +510,17 @@ export default function TripPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {expenseToEdit && activeTrip && (
+        <EditExpenseDialog
+          isOpen={isEditExpenseDialogOpen}
+          onOpenChange={setIsEditExpenseDialogOpen}
+          expenseToEdit={expenseToEdit}
+          members={activeTrip.members}
+          tripCurrency={activeTrip.currency}
+          onUpdateExpense={handleUpdateExpense}
+        />
+      )}
     </div>
   );
 }
