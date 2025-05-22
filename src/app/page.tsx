@@ -18,7 +18,7 @@ import { ItineraryFormDialog } from '@/components/trip/ItineraryFormDialog';
 import { EditItineraryItemDialog } from '@/components/trip/EditItineraryItemDialog';
 import { TripInfo } from '@/components/trip/TripInfo';
 
-import type { AppState, TripData, Member, Expense, Comment as ExpenseComment, ChatMessage, ItineraryItem, ItineraryComment } from '@/lib/types';
+import type { AppState, TripData, Member, Expense, Comment as ExpenseComment, ChatMessage, ItineraryItem, ItineraryComment, SplitDetail } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; // Added ScrollBar
 import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon, LogIn, Coins, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -224,7 +224,7 @@ export default function TripPage() {
         newTripCurrency,
         user.uid,
         user.displayName || user.email || "Trip Creator",
-        user.email?.toLowerCase() // Ensure email is passed as lowercase
+        user.email?.toLowerCase()
     );
 
     const tripDataForFirestore = prepareDataForFirestore(initialTripData);
@@ -235,8 +235,6 @@ export default function TripPage() {
       setNewTripName('');
       setNewTripCurrency(CURRENCIES[0]);
       setIsCreateTripDialogOpen(false);
-      // No need to manually set activeTripId here, onSnapshot will pick it up.
-      // setCurrentUserId will also be handled by onSnapshot's logic.
     } catch (error) {
       console.error("Error creating new trip in Firestore:", error);
       toast({ title: "Error Creating Trip", description: "Could not save the new trip to the database.", variant: "destructive"});
@@ -277,12 +275,10 @@ export default function TripPage() {
     const normalizedName = name.trim();
     const email = emailInput ? emailInput.trim().toLowerCase() : undefined;
 
-    // Check if member display name already exists
     if (activeTrip.members.some(m => m.name.toLowerCase() === normalizedName.toLowerCase())) {
       toast({ title: "Member Name Exists", description: `A member named "${normalizedName}" is already in this trip's display list.`, variant: "destructive" });
       return;
     }
-    // If email is provided, check if that email is already in the display list
     if (email && activeTrip.members.some(m => m.email?.toLowerCase() === email)) {
        toast({ title: "Member Email Exists", description: `A member with email "${email}" is already in this trip's display list.`, variant: "destructive" });
        return;
@@ -357,13 +353,12 @@ export default function TripPage() {
     const memberToRemove = activeTrip.members.find(m => m.id === idToRemove);
     if (!memberToRemove) return;
 
-    // Prevent creator from removing their own UID if they are the sole editor or removing their own display member if they are the sole member
     if (memberToRemove.id === user.uid && activeTrip.creatorUID === user.uid) {
         if (activeTrip.memberUIDs.length === 1 && activeTrip.memberUIDs[0] === user.uid) {
              toast({ title: "Action Blocked", description: "As creator and sole editor, you cannot remove your own access. To leave, delete the trip or add another editor first.", variant: "destructive", duration: 10000});
              return;
         }
-         if (activeTrip.members.length === 1) { // This check is for the display members list
+         if (activeTrip.members.length === 1) { 
              toast({ title: "Cannot Remove Self", description: "You are the only member. To remove yourself, delete the trip or invite another member first.", variant: "destructive", duration: 7000});
              return;
         }
@@ -383,10 +378,7 @@ export default function TripPage() {
     const preparedMemberToRemove = prepareDataForFirestore(memberToRemove);
     const updatePayload: any = { members: arrayRemove(preparedMemberToRemove) };
 
-    // If the member being removed from the display list also had their UID in memberUIDs, remove that UID too
-    // This is important for members added via email lookup who used their Firebase UID as their `member.id`
     if (activeTrip.memberUIDs.includes(idToRemove)) {
-       // Additional check: do not remove the creator's UID if they are the only one with access
        if (idToRemove === activeTrip.creatorUID && activeTrip.memberUIDs.length === 1) {
             toast({ title: "Action Blocked", description: "Cannot remove the trip creator's edit access if they are the only one with access.", variant: "destructive", duration: 8000});
             return;
@@ -397,7 +389,6 @@ export default function TripPage() {
     if (currentUserId === idToRemove) {
       const remainingMembers = activeTrip.members.filter(member => member.id !== idToRemove);
       if (remainingMembers.length > 0) {
-        // Prefer setting currentUserId to the logged-in user if they are still a member, otherwise to the first remaining member
         setCurrentUserId(remainingMembers.find(m => m.id === user.uid)?.id || remainingMembers[0].id);
       } else {
         setCurrentUserId('');
@@ -502,9 +493,6 @@ export default function TripPage() {
         toast({ title: "Expense Updated", description: `"${updatedExpenseData.description}" has been updated.` });
     } catch (error) {
         console.error("Error updating expense with batch:", error);
-        // Fallback to individual updates (less ideal but better than nothing)
-        // This might be less atomic, but could recover from specific batch errors.
-        // For robust production, more sophisticated error handling or retries might be needed.
         const currentExpenses = activeTrip.expenses.filter(exp => exp.id !== expenseToEdit.id);
         const updatedExpensesForFirestore = [...currentExpenses.map(prepareDataForFirestore), preparedUpdatedExpense];
         await updateActiveTripInFirestore({ expenses: updatedExpensesForFirestore });
@@ -814,9 +802,9 @@ export default function TripPage() {
 
         {activeTrip && user && (
           <Tabs defaultValue="activity" className="w-full">
-            <ScrollArea orientation="horizontal" className="pb-2.5">
+            <ScrollArea orientation="horizontal" className="w-full whitespace-nowrap pb-2.5 mb-6">
               <div className="flex justify-center">
-                <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground whitespace-nowrap mb-6">
+                <TabsList className="inline-flex h-10 items-center rounded-md bg-muted p-1 text-muted-foreground">
                   <TabsTrigger value="manage" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Settings className="h-4 w-4"/> Manage</TabsTrigger>
                   <TabsTrigger value="info" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><InfoIcon className="h-4 w-4"/> Trip Info</TabsTrigger>
                   <TabsTrigger value="activity" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Activity className="h-4 w-4"/> Activity</TabsTrigger>
@@ -824,6 +812,7 @@ export default function TripPage() {
                   <TabsTrigger value="chat" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MessageSquare className="h-4 w-4"/> Chat</TabsTrigger>
                 </TabsList>
               </div>
+              <ScrollBar orientation="horizontal" />
             </ScrollArea>
 
             <TabsContent value="manage" className="space-y-6">
@@ -1016,3 +1005,6 @@ export default function TripPage() {
     </div>
   );
 }
+
+
+    
