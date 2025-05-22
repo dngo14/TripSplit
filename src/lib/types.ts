@@ -59,7 +59,7 @@ export interface ItineraryItem {
   visitDate: Date;
   notes: string;
   createdAt: Date;
-  comments: ItineraryComment[]; // Added comments for itinerary items
+  comments: ItineraryComment[];
 }
 
 export interface TripData {
@@ -70,6 +70,12 @@ export interface TripData {
   chatMessages: ChatMessage[];
   currency: string; // e.g., "USD", "EUR"
   itinerary: ItineraryItem[];
+  // New fields for Trip Info
+  accommodationAddress?: string;
+  tripStartDate?: Date;
+  tripEndDate?: Date;
+  flightDetails?: string;
+  notes?: string; // General trip notes
 }
 
 export interface AppState {
@@ -82,3 +88,4 @@ export interface Settlement {
   to: string;   // Member name
   amount: number;
 }
+

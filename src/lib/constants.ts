@@ -11,7 +11,12 @@ export function createInitialTripData(name: string, currency: string = "USD"): T
     expenses: [],
     chatMessages: [],
     currency: currency,
-    itinerary: [], // Initialize with empty itinerary
+    itinerary: [],
+    accommodationAddress: '',
+    tripStartDate: undefined,
+    tripEndDate: undefined,
+    flightDetails: '',
+    notes: '',
   };
 }
 
@@ -19,3 +24,4 @@ export const INITIAL_APP_STATE: AppState = {
   trips: [],
   activeTripId: null,
 };
+

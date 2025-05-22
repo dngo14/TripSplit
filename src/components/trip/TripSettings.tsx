@@ -1,20 +1,23 @@
+
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { CURRENCIES } from '@/lib/constants';
-import { Settings, Edit3,DollarSignIcon } from 'lucide-react';
+import { Settings, Edit3, DollarSignIcon, Trash2 } from 'lucide-react';
 
 interface TripSettingsProps {
   tripName: string;
   onTripNameChange: (name: string) => void;
   currency: string;
   onCurrencyChange: (currency: string) => void;
+  onDeleteTrip: () => void;
 }
 
-export function TripSettings({ tripName, onTripNameChange, currency, onCurrencyChange }: TripSettingsProps) {
+export function TripSettings({ tripName, onTripNameChange, currency, onCurrencyChange, onDeleteTrip }: TripSettingsProps) {
   return (
     <Card className="shadow-lg mb-6">
       <CardHeader>
@@ -49,6 +52,12 @@ export function TripSettings({ tripName, onTripNameChange, currency, onCurrencyC
           </Select>
         </div>
       </CardContent>
+      <CardFooter className="border-t pt-4">
+         <Button variant="destructive" onClick={onDeleteTrip} className="w-full sm:w-auto">
+            <Trash2 className="mr-2 h-4 w-4" /> Delete This Trip
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
+
