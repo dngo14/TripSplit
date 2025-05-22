@@ -1,3 +1,4 @@
+
 export interface Member {
   id: string;
   name: string;
@@ -32,6 +33,7 @@ export interface Expense {
   date: Date;
   splitType: SplitType;
   splitDetails: SplitDetail[]; // Details of how the expense is split
+  receiptImageUri?: string; // To store the receipt image as a data URI
 }
 
 export interface ChatMessage {

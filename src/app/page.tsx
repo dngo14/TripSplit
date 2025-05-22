@@ -9,7 +9,7 @@ import { ExpenseList } from '@/components/trip/ExpenseList';
 import { SettlementSummary } from '@/components/trip/SettlementSummary';
 import { ChatRoom } from '@/components/trip/ChatRoom';
 import { TripSettings } from '@/components/trip/TripSettings';
-import { EditExpenseDialog } from '@/components/trip/EditExpenseDialog'; // Import the new dialog
+import { EditExpenseDialog } from '@/components/trip/EditExpenseDialog';
 import type { AppState, TripData, Member, Expense, Comment, ChatMessage } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
 import { calculateSettlements } from '@/lib/settlement';
@@ -23,7 +23,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare } from 'lucide-react';
 
-const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2';
+const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2'; // Version kept same for now, existing data will adapt
 
 export default function TripPage() {
   const [appState, setAppState] = useState<AppState>(INITIAL_APP_STATE);
@@ -62,6 +62,7 @@ export default function TripPage() {
             comments: exp.comments.map(c => ({...c, createdAt: new Date(c.createdAt)})),
             splitType: exp.splitType || 'equally', 
             splitDetails: exp.splitDetails || [],
+            receiptImageUri: exp.receiptImageUri || undefined, // Add this line
           })),
           chatMessages: trip.chatMessages.map(msg => ({...msg, createdAt: new Date(msg.createdAt)}))
         }));
@@ -94,7 +95,7 @@ export default function TripPage() {
         setCurrentUserId('');
       }
     }
-  }, [toast]); // Added toast to dependency array as it's used in catch
+  }, [toast]);
 
   useEffect(() => {
     if (isClient) {

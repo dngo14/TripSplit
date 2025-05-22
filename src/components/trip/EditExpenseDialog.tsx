@@ -2,14 +2,14 @@
 "use client";
 
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Receipt, DollarSign, CalendarDays, User, Save, Split, UsersIcon } from 'lucide-react';
+import { Receipt, DollarSign, CalendarDays, User, Save, Split, UsersIcon, Paperclip, XCircle } from 'lucide-react';
 import type { Member, Expense, SplitType, SplitDetail } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -41,13 +41,15 @@ export function EditExpenseDialog({
   const [amount, setAmount] = useState<number | ''>('');
   const [paidById, setPaidById] = useState<string>('');
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [category, setCategory] = useState<string | undefined>(undefined); // Category is not AI-suggested on edit
+  const [category, setCategory] = useState<string | undefined>(undefined);
 
   const [splitType, setSplitType] = useState<SplitType>('equally');
   const [splitEquallyAmongAll, setSplitEquallyAmongAll] = useState(true);
   const [selectedMembersForEqualSplit, setSelectedMembersForEqualSplit] = useState<Set<string>>(new Set());
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
   const [splitPercentages, setSplitPercentages] = useState<Record<string, string>>({});
+  const [receiptImageUri, setReceiptImageUri] = useState<string | undefined>(undefined);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
 
@@ -59,14 +61,15 @@ export function EditExpenseDialog({
       setDate(new Date(expenseToEdit.date));
       setCategory(expenseToEdit.category);
       setSplitType(expenseToEdit.splitType);
+      setReceiptImageUri(expenseToEdit.receiptImageUri);
+      if(fileInputRef.current) fileInputRef.current.value = "";
+
 
       if (expenseToEdit.splitType === 'equally') {
         if (expenseToEdit.splitDetails && expenseToEdit.splitDetails.length > 0) {
-          // If there are specific members selected for equal split
           const selectedMemberIds = new Set(expenseToEdit.splitDetails.map(sd => sd.memberId));
           const allMemberIdsInSplit = members.length > 0 ? new Set(members.map(m => m.id)) : new Set();
           
-          // Check if the splitDetails effectively mean "all members"
           let isEffectivelyAll = true;
           if (selectedMemberIds.size !== allMemberIdsInSplit.size) {
             isEffectivelyAll = false;
@@ -88,12 +91,11 @@ export function EditExpenseDialog({
           }
 
         } else {
-          // Default to split among all if splitDetails is empty or undefined
           setSplitEquallyAmongAll(true);
           setSelectedMembersForEqualSplit(new Set());
         }
       } else {
-        setSplitEquallyAmongAll(false); // Default for other types
+        setSplitEquallyAmongAll(false);
         setSelectedMembersForEqualSplit(new Set());
       }
 
@@ -118,7 +120,7 @@ export function EditExpenseDialog({
         setSplitPercentages({});
       }
     }
-  }, [expenseToEdit, members, isOpen]); // Re-run if isOpen changes to reset form if dialog is re-opened for new expense
+  }, [expenseToEdit, members, isOpen]);
 
   const handleSplitAmountChange = (memberId: string, value: string) => {
     setSplitAmounts(prev => ({ ...prev, [memberId]: value }));
@@ -139,6 +141,29 @@ export function EditExpenseDialog({
       return newSet;
     });
   };
+  
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({ title: "Image too large", description: "Please select an image smaller than 5MB.", variant: "destructive"});
+        if(fileInputRef.current) fileInputRef.current.value = ""; // Clear the input
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptImageUri(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setReceiptImageUri(undefined);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; 
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +181,6 @@ export function EditExpenseDialog({
         toast({ title: "No members", description: "Cannot specify split details without members.", variant: "destructive" });
         return;
     }
-
 
     let finalSplitDetails: SplitDetail[] = [];
 
@@ -203,11 +227,11 @@ export function EditExpenseDialog({
       description,
       amount: Number(amount),
       paidById,
-      category, // Preserve existing category or let it be undefined
+      category, 
       date,
       splitType,
       splitDetails: finalSplitDetails,
-      // createdAt is not changed on edit
+      receiptImageUri,
     };
 
     onUpdateExpense(updatedExpense);
@@ -289,7 +313,6 @@ export function EditExpenseDialog({
              {members.length === 0 && <p className="text-sm text-destructive mt-1">Add members to select who paid.</p>}
           </div>
           
-          {/* Category display (not editable for now, to keep Genkit flow separate) */}
            {category && (
             <div>
                 <Label className="flex items-center mb-1 text-sm">Category</Label>
@@ -297,6 +320,32 @@ export function EditExpenseDialog({
             </div>
            )}
 
+          <div>
+            <Label htmlFor="edit-receiptImage" className="flex items-center mb-1"><Paperclip className="mr-2 h-4 w-4" />Receipt (Optional)</Label>
+            <Input 
+              id="edit-receiptImage"
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              ref={fileInputRef}
+              className="text-sm file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-muted file:text-muted-foreground hover:file:bg-muted/50"
+            />
+            {receiptImageUri && (
+              <div className="mt-2 relative w-32 h-32 border rounded-md p-1">
+                <img src={receiptImageUri} alt="Receipt preview" className="w-full h-full object-contain rounded" />
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute top-0 right-0 h-6 w-6 bg-destructive/70 hover:bg-destructive text-destructive-foreground rounded-full"
+                  onClick={handleRemoveImage}
+                  aria-label="Remove receipt image"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
 
           <Separator />
           <div>

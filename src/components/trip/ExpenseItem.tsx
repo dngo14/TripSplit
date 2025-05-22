@@ -4,12 +4,20 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { Expense, Member } from '@/lib/types';
-import { User, CalendarDays, Tag, MessageSquare, DollarSign, Split, Edit, Trash2 } from 'lucide-react';
+import { User, CalendarDays, Tag, MessageSquare, DollarSign, Split, Edit, Trash2, Paperclip as PaperclipIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { CommentForm } from './CommentForm';
 import { ScrollArea } from '../ui/scroll-area';
 import { Button } from '../ui/button';
 import { getAvatarData } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
 
 interface ExpenseItemProps {
   expense: Expense;
@@ -71,6 +79,23 @@ export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onA
              <Badge variant="outline" className="text-xs whitespace-nowrap">
               <Split className="mr-1 h-3 w-3"/> {getSplitDescription()}
             </Badge>
+            {expense.receiptImageUri && (
+                 <Dialog>
+                    <DialogTrigger asChild>
+                         <Badge variant="outline" className="text-xs whitespace-nowrap cursor-pointer hover:bg-muted/50">
+                            <PaperclipIcon className="mr-1 h-3 w-3"/> View Receipt
+                        </Badge>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl max-h-[80vh] flex flex-col">
+                        <DialogHeader>
+                        <DialogTitle>Receipt for: {expense.description}</DialogTitle>
+                        </DialogHeader>
+                        <div className="flex-grow overflow-auto p-2">
+                         <img src={expense.receiptImageUri} alt={`Receipt for ${expense.description}`} className="max-w-full max-h-full mx-auto object-contain rounded-md"/>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
         </div>
         <CardDescription className="text-xs flex flex-wrap gap-x-4 gap-y-1 pt-1 items-center">
           <span className="flex items-center"><DollarSign className="mr-1 h-3 w-3" /> {expense.amount.toFixed(2)} {tripCurrency}</span>

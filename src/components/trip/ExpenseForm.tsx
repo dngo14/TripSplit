@@ -1,14 +1,15 @@
+
 "use client";
 
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Receipt, DollarSign, CalendarDays, User, PlusCircle, Brain, Split, UsersIcon } from 'lucide-react';
+import { Receipt, DollarSign, CalendarDays, User, PlusCircle, Brain, Split, UsersIcon, Paperclip, XCircle } from 'lucide-react';
 import type { Member, Expense, SplitType, SplitDetail } from '@/lib/types';
 import { CURRENCIES } from '@/lib/constants';
 import { categorizeExpense as aiCategorizeExpense } from '@/ai/flows/categorize-expense';
@@ -39,11 +40,12 @@ export function ExpenseForm({ members, onAddExpense, tripCurrency }: ExpenseForm
   const [splitType, setSplitType] = useState<SplitType>('equally');
   const [splitEquallyAmongAll, setSplitEquallyAmongAll] = useState(true);
   const [selectedMembersForEqualSplit, setSelectedMembersForEqualSplit] = useState<Set<string>>(new Set());
-  const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({}); // Store as string for input
-  const [splitPercentages, setSplitPercentages] = useState<Record<string, string>>({}); // Store as string for input
+  const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
+  const [splitPercentages, setSplitPercentages] = useState<Record<string, string>>({});
+  const [receiptImageUri, setReceiptImageUri] = useState<string | undefined>(undefined);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Reset split details when members change or split type changes
     setSelectedMembersForEqualSplit(new Set());
     setSplitAmounts({});
     setSplitPercentages({});
@@ -79,6 +81,29 @@ export function ExpenseForm({ members, onAddExpense, tripCurrency }: ExpenseForm
     });
   };
 
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({ title: "Image too large", description: "Please select an image smaller than 5MB.", variant: "destructive"});
+        if(fileInputRef.current) fileInputRef.current.value = ""; // Clear the input
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptImageUri(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setReceiptImageUri(undefined);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; // Clear the file input
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description || amount === '' || !paidById || !date) {
@@ -104,7 +129,6 @@ export function ExpenseForm({ members, onAddExpense, tripCurrency }: ExpenseForm
         }
         finalSplitDetails = Array.from(selectedMembersForEqualSplit).map(memberId => ({ memberId }));
       }
-      // If splitEquallyAmongAll is true, finalSplitDetails remains empty, signaling to split among all trip members.
     } else if (splitType === 'byAmount') {
       const currentSplitAmounts = Object.entries(splitAmounts)
         .map(([memberId, amtStr]) => ({ memberId, amount: parseFloat(amtStr) || 0 }))
@@ -158,17 +182,19 @@ export function ExpenseForm({ members, onAddExpense, tripCurrency }: ExpenseForm
       date,
       splitType,
       splitDetails: finalSplitDetails,
+      receiptImageUri,
     });
 
     setDescription('');
     setAmount('');
-    // setPaidById(''); // Keep paidBy or reset based on preference. Resetting could be annoying.
     setDate(new Date());
     setSplitType('equally');
     setSplitEquallyAmongAll(true);
     setSelectedMembersForEqualSplit(new Set());
     setSplitAmounts({});
     setSplitPercentages({});
+    setReceiptImageUri(undefined);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
@@ -243,6 +269,33 @@ export function ExpenseForm({ members, onAddExpense, tripCurrency }: ExpenseForm
               </SelectContent>
             </Select>
             {members.length === 0 && <p className="text-sm text-destructive mt-1">Add members to select who paid.</p>}
+          </div>
+          
+          <div>
+            <Label htmlFor="receiptImage" className="flex items-center mb-1"><Paperclip className="mr-2 h-4 w-4" />Receipt (Optional)</Label>
+            <Input 
+              id="receiptImage"
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              ref={fileInputRef}
+              className="text-sm file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-muted file:text-muted-foreground hover:file:bg-muted/50"
+            />
+            {receiptImageUri && (
+              <div className="mt-2 relative w-32 h-32 border rounded-md p-1">
+                <img src={receiptImageUri} alt="Receipt preview" className="w-full h-full object-contain rounded" />
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute top-0 right-0 h-6 w-6 bg-destructive/70 hover:bg-destructive text-destructive-foreground rounded-full"
+                  onClick={handleRemoveImage}
+                  aria-label="Remove receipt image"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
           <Separator />
