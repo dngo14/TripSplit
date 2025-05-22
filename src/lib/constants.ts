@@ -13,18 +13,18 @@ export function createInitialTripData(name: string, currency: string = "USD", cr
   
   return {
     tripName: name,
-    members: [creatorMember], // Add creator as the first member
+    members: [creatorMember], 
     expenses: [],
     chatMessages: [],
     currency: currency,
     itinerary: [],
     accommodationAddress: '',
-    tripStartDate: null, // Changed from undefined
-    tripEndDate: null,   // Changed from undefined
+    tripStartDate: null,
+    tripEndDate: null,
     flightDetails: '',
     notes: '',
     creatorUID: creatorUID,
-    memberUIDs: [creatorUID], // Creator is initially the only member
+    memberUIDs: [creatorUID], // Creator's UID is part of memberUIDs
     lastUpdatedAt: Timestamp.now(),
   };
 }
@@ -33,3 +33,5 @@ export const INITIAL_APP_STATE: AppState = {
   trips: [],
   activeTripId: null,
 };
+
+    
