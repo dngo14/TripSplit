@@ -8,6 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { CURRENCIES } from '@/lib/constants';
 import { Settings, Edit3, DollarSignIcon, Trash2 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface TripSettingsProps {
   tripName: string;
@@ -15,9 +21,17 @@ interface TripSettingsProps {
   currency: string;
   onCurrencyChange: (currency: string) => void;
   onDeleteTrip: () => void;
+  isCreator: boolean; // New prop
 }
 
-export function TripSettings({ tripName, onTripNameChange, currency, onCurrencyChange, onDeleteTrip }: TripSettingsProps) {
+export function TripSettings({ 
+  tripName, 
+  onTripNameChange, 
+  currency, 
+  onCurrencyChange, 
+  onDeleteTrip,
+  isCreator 
+}: TripSettingsProps) {
   return (
     <Card className="shadow-lg mb-6">
       <CardHeader>
@@ -53,11 +67,30 @@ export function TripSettings({ tripName, onTripNameChange, currency, onCurrencyC
         </div>
       </CardContent>
       <CardFooter className="border-t pt-4">
-         <Button variant="destructive" onClick={onDeleteTrip} className="w-full sm:w-auto">
-            <Trash2 className="mr-2 h-4 w-4" /> Delete This Trip
-        </Button>
+        <TooltipProvider>
+          <Tooltip delayDuration={100}>
+            <TooltipTrigger asChild>
+              {/* Button is wrapped for Tooltip when disabled */}
+              <div className="w-full sm:w-auto"> 
+                <Button 
+                  variant="destructive" 
+                  onClick={onDeleteTrip} 
+                  className="w-full"
+                  disabled={!isCreator}
+                  aria-disabled={!isCreator}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete This Trip
+                </Button>
+              </div>
+            </TooltipTrigger>
+            {!isCreator && (
+              <TooltipContent>
+                <p>Only the trip creator can delete the trip.</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </CardFooter>
     </Card>
   );
 }
-
