@@ -33,7 +33,7 @@ const prompt = ai.definePrompt({
   name: 'suggestTripIdeasPrompt',
   input: {schema: SuggestTripIdeasInputSchema},
   output: {schema: SuggestTripIdeasOutputSchema},
-  prompt: `You are an expert travel planner AI. Based on the user's destination, interests, and trip duration, generate a creative trip theme, a catchy trip title, and 3-5 key activity suggestions.
+  prompt: `You are an expert travel planner AI. Based on the user's destination, interests, and trip duration, generate a creative trip theme, a catchy trip title, and 3-5 key activity suggestions that includes the location if relevant.
 
 Destination: {{{destination}}}
 Interests: {{{interests}}}
