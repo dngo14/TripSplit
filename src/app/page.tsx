@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2 } from 'lucide-react';
+import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2';
 
@@ -115,10 +115,10 @@ export default function TripPage() {
       const updatedTrips = prev.trips.map(trip => {
         if (trip.id === prev.activeTripId) {
           const result = updater(trip);
-          return result; // This can be null if the trip itself is deleted, though not handled here
+          return result; 
         }
         return trip;
-      }).filter(Boolean) as TripData[]; // Filter out nulls if a trip was deleted
+      }).filter(Boolean) as TripData[]; 
 
       return {
         ...prev,
@@ -181,7 +181,7 @@ export default function TripPage() {
       const isPayer = trip.expenses.some(exp => exp.paidById === id);
       const isInvolvedInSplit = trip.expenses.some(exp => 
         exp.splitDetails.some(detail => detail.memberId === id) || 
-        (exp.splitType === 'equally' && exp.splitDetails.length === 0 && trip.members.some(m => m.id === id)) // if equally split among all check this member is part of all
+        (exp.splitType === 'equally' && exp.splitDetails.length === 0 && trip.members.some(m => m.id === id))
       );
 
       if (isPayer || isInvolvedInSplit) {
@@ -233,10 +233,8 @@ export default function TripPage() {
   };
   
   const handleEditExpense = (expense: Expense) => {
-    // Placeholder for edit functionality
     toast({ title: "Edit Feature", description: `Editing "${expense.description}" is not yet implemented.` });
     console.log("Attempting to edit expense:", expense);
-    // In a full implementation, you'd likely open a dialog pre-filled with expense data.
   };
 
   const handleAddComment = (expenseId: string, authorId: string, text: string) => {
@@ -386,9 +384,10 @@ export default function TripPage() {
 
         {activeTrip && (
           <Tabs defaultValue="activity" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
               <TabsTrigger value="manage" className="flex items-center gap-2"><Settings className="h-4 w-4"/> Manage Trip</TabsTrigger>
               <TabsTrigger value="activity" className="flex items-center gap-2"><Activity className="h-4 w-4"/> Activity Log</TabsTrigger>
+              <TabsTrigger value="chat" className="flex items-center gap-2"><MessageSquare className="h-4 w-4"/> Trip Chat</TabsTrigger>
             </TabsList>
 
             <TabsContent value="manage" className="space-y-6">
@@ -404,9 +403,9 @@ export default function TripPage() {
             <TabsContent value="activity">
               {activeTrip.members.length > 0 && (
                 <div className="my-4 max-w-xs">
-                  <Label htmlFor="currentUser" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are:</Label>
+                  <Label htmlFor="currentUserActivity" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are:</Label>
                   <Select value={currentUserId} onValueChange={setCurrentUserId} disabled={activeTrip.members.length === 0}>
-                    <SelectTrigger id="currentUser">
+                    <SelectTrigger id="currentUserActivity">
                       <SelectValue placeholder="Select your user profile" />
                     </SelectTrigger>
                     <SelectContent>
@@ -423,13 +422,12 @@ export default function TripPage() {
                   <p className="my-4 text-sm text-muted-foreground">Add members in the 'Manage Trip' tab to participate.</p>
                )}
 
-
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-6 flex flex-col">
                   <ExpenseForm members={activeTrip.members} onAddExpense={handleAddExpense} tripCurrency={activeTrip.currency} />
+                  <SettlementSummary settlements={settlements} tripCurrency={activeTrip.currency} />
                 </div>
-
-                <div className="lg:col-span-1 min-h-[600px]">
+                <div className="lg:col-span-2 min-h-[600px]"> {/* ExpenseList now spans 2 columns */}
                    <ExpenseList 
                       expenses={activeTrip.expenses} 
                       members={activeTrip.members} 
@@ -440,18 +438,37 @@ export default function TripPage() {
                       onEditExpense={handleEditExpense}
                     />
                 </div>
+              </div>
+            </TabsContent>
 
-                <div className="lg:col-span-1 space-y-6 flex flex-col">
-                  <SettlementSummary settlements={settlements} tripCurrency={activeTrip.currency} />
-                  <div className="flex-grow min-h-[400px]">
-                    <ChatRoom 
-                      messages={activeTrip.chatMessages}
-                      members={activeTrip.members}
-                      currentUserId={currentUserId}
-                      onSendMessage={handleSendMessage}
-                    />
-                  </div>
+            <TabsContent value="chat">
+              {activeTrip.members.length > 0 && (
+                <div className="my-4 max-w-xs">
+                  <Label htmlFor="currentUserChat" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are:</Label>
+                   <Select value={currentUserId} onValueChange={setCurrentUserId} disabled={activeTrip.members.length === 0}>
+                    <SelectTrigger id="currentUserChat">
+                      <SelectValue placeholder="Select your user profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeTrip.members.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+              )}
+              {activeTrip.members.length === 0 && !currentUserId &&(
+                  <p className="my-4 text-sm text-muted-foreground">Add members and select your user profile in 'Manage Trip' or 'Activity Log' tab to chat.</p>
+               )}
+              <div className="h-[600px]"> {/* Ensure chat room has enough height */}
+                <ChatRoom 
+                  messages={activeTrip.chatMessages}
+                  members={activeTrip.members}
+                  currentUserId={currentUserId}
+                  onSendMessage={handleSendMessage}
+                />
               </div>
             </TabsContent>
           </Tabs>
