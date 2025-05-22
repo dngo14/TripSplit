@@ -200,16 +200,34 @@ export default function TripPage() {
       toast({ title: "Trip name required", description: "Please enter a name for your new trip.", variant: "destructive"});
       return;
     }
-    const newTrip = createInitialTripData(newTripName.trim(), newTripCurrency);
+    if (!user) {
+        toast({ title: "Authentication Error", description: "You must be logged in to create a trip.", variant: "destructive"});
+        return;
+    }
+
+    const initialTrip = createInitialTripData(newTripName.trim(), newTripCurrency);
+    
+    const firstMember: Member = {
+      id: user.uid, // Use Firebase UID as member ID
+      name: user.displayName || user.email || "Trip Creator", 
+    };
+
+    const newTripWithCreator: TripData = {
+        ...initialTrip,
+        members: [firstMember], 
+    };
+    
     setAppState(prev => ({
-      trips: [...prev.trips, newTrip],
-      activeTripId: newTrip.id,
+      trips: [...prev.trips, newTripWithCreator],
+      activeTripId: newTripWithCreator.id,
     }));
-    setCurrentUserId(''); 
+    
+    setCurrentUserId(firstMember.id); // Set the creator as the current user for actions
+
     setNewTripName('');
     setNewTripCurrency(CURRENCIES[0]);
     setIsCreateTripDialogOpen(false);
-    toast({ title: "Trip Created", description: `"${newTrip.tripName}" has been created.`});
+    toast({ title: "Trip Created", description: `"${newTripWithCreator.tripName}" has been created with you as the first member.`});
   };
 
   const handleAddMember = (name: string) => {
@@ -218,12 +236,15 @@ export default function TripPage() {
       toast({ title: "Member exists", description: `A member named "${name}" already exists in this trip.`, variant: "destructive" });
       return;
     }
+    // Ensure new member ID (randomUUID) doesn't clash with the creator's Firebase UID if they try to add themselves again by a different name
+    // Though, typically users wouldn't add themselves again. If they do, a random UUID is fine.
+    // The creator is special and uses user.uid. Other members get random UUIDs.
     const newMember: Member = { id: crypto.randomUUID(), name };
     updateActiveTrip(trip => {
       const updatedMembers = [...trip.members, newMember];
-      if (updatedMembers.length === 1) { 
-        setCurrentUserId(newMember.id);
-      }
+      // No need to change currentUserId here, as the creator is already set, or another user is selected.
+      // If this is the *very first* member being added (besides the auto-added creator), 
+      // then currentUserId would have been the creator's.
       return { ...trip, members: updatedMembers };
     });
     toast({ title: "Member Added", description: `${name} has been added to "${activeTrip.tripName}".`});
@@ -343,7 +364,6 @@ export default function TripPage() {
 
   const handleAddExpenseComment = (expenseId: string, authorId: string, text: string) => {
     if (!activeTrip) return;
-    // Use currentUserId (selected member) as author, not necessarily the logged-in Firebase user for now
     const author = activeTrip.members.find(m => m.id === authorId);
     if (!author) {
       toast({title: "Select User", description: "Please select your user profile to comment.", variant: "destructive"});
@@ -354,7 +374,7 @@ export default function TripPage() {
       id: crypto.randomUUID(),
       expenseId,
       authorId,
-      authorName: author.name, // Name from trip member list
+      authorName: author.name, 
       text,
       createdAt: new Date(),
     };
@@ -367,7 +387,7 @@ export default function TripPage() {
   };
 
   const handleSendMessage = (text: string) => {
-    if (!activeTrip || !currentUserId) { // currentUserId is the selected member for this trip
+    if (!activeTrip || !currentUserId) { 
         toast({title: "Select User", description: "Please select your user profile to send messages.", variant: "destructive"});
         return;
     }
@@ -377,7 +397,7 @@ export default function TripPage() {
     const newMessage: ChatMessage = {
       id: crypto.randomUUID(),
       senderId: currentUserId,
-      senderName: sender.name, // Name from trip member list
+      senderName: sender.name, 
       text,
       createdAt: new Date(),
     };
@@ -425,7 +445,6 @@ export default function TripPage() {
     
   const handleAddItineraryComment = (itineraryItemId: string, authorId: string, text: string) => {
     if (!activeTrip) return;
-    // Use currentUserId (selected member) as author
     const author = activeTrip.members.find(m => m.id === authorId);
      if (!author) {
       toast({title: "Select User", description: "Please select your user profile to comment.", variant: "destructive"});
@@ -435,7 +454,7 @@ export default function TripPage() {
     const newComment: ItineraryComment = {
       id: crypto.randomUUID(),
       authorId,
-      authorName: author.name, // Name from trip member list
+      authorName: author.name, 
       text,
       createdAt: new Date(),
     };
@@ -487,7 +506,6 @@ export default function TripPage() {
             </Button>
           </div>
         </main>
-        {/* Footer removed from sign-in specific view for simplicity */}
       </div>
     );
   }
@@ -646,7 +664,7 @@ export default function TripPage() {
                       expenses={activeTrip.expenses} 
                       members={activeTrip.members} 
                       tripCurrency={activeTrip.currency}
-                      currentUserId={currentUserId} // This is the selected member for actions
+                      currentUserId={currentUserId} 
                       onAddComment={handleAddExpenseComment}
                       onDeleteExpense={(expenseId) => handleRequestDeleteItem(expenseId, 'expense')}
                       onEditExpense={handleOpenEditExpenseDialog}
@@ -685,7 +703,7 @@ export default function TripPage() {
               <ItineraryList
                 itineraryItems={activeTrip.itinerary}
                 members={activeTrip.members}
-                currentUserId={currentUserId} // Selected member for comments
+                currentUserId={currentUserId} 
                 onEditItem={handleOpenEditItineraryItemDialog}
                 onDeleteItem={(itemId) => handleRequestDeleteItem(itemId, 'itinerary')}
                 onAddComment={handleAddItineraryComment}
@@ -718,7 +736,7 @@ export default function TripPage() {
                 <ChatRoom 
                   messages={activeTrip.chatMessages}
                   members={activeTrip.members}
-                  currentUserId={currentUserId} // Selected member for chat
+                  currentUserId={currentUserId} 
                   onSendMessage={handleSendMessage}
                 />
               </div>
