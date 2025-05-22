@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import type { ItineraryItem, Member, ItineraryComment } from '@/lib/types';
 import { MapPin, Home, CalendarDays, NotebookText, Edit3, Trash2, MessageSquare, ExternalLink } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid, isDate } from 'date-fns'; // Import isValid and isDate
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ItineraryCommentForm } from './ItineraryCommentForm';
 import { getAvatarData } from '@/lib/utils';
@@ -20,7 +20,7 @@ interface ItineraryItemCardProps {
 }
 
 export function ItineraryItemCard({ item, members, currentUserId, onEdit, onDelete, onAddComment }: ItineraryItemCardProps) {
-  
+
   const generateMapsLink = (platform: 'google' | 'apple') => {
     const query = encodeURIComponent(item.address || item.placeName);
     if (!query) return "#";
@@ -55,10 +55,13 @@ export function ItineraryItemCard({ item, members, currentUserId, onEdit, onDele
         </div>
         <CardDescription className="text-xs flex items-center pt-1">
           <CalendarDays className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-          {format(new Date(item.visitDate), "EEE, MMM d, yyyy 'at' p")}
+          {/* Updated date formatting to be more robust */}
+          {isDate(item.visitDate) && isValid(item.visitDate as Date)
+            ? format(item.visitDate as Date, "EEE, MMM d, yyyy 'at' p")
+            : 'Date not set'}
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="pt-0 pb-3 space-y-2">
         {item.address && (
           <div className="flex items-start text-sm">
@@ -100,14 +103,17 @@ export function ItineraryItemCard({ item, members, currentUserId, onEdit, onDele
               <ul className="space-y-1 text-xs">
                 {item.comments.map((comment) => {
                     const commentAuthorAvatar = getAvatarData(comment.authorName);
+                    const commentDate = comment.createdAt ? (comment.createdAt instanceof Date ? comment.createdAt : (comment.createdAt as any).toDate?.()) : null;
                     return (
                       <li key={comment.id} className="bg-background/50 p-1.5 rounded flex items-start gap-1.5">
                         <div className={`mt-0.5 w-5 h-5 rounded-full ${commentAuthorAvatar.bgColor} flex items-center justify-center text-white font-semibold text-[10px] flex-shrink-0`}>
                           {commentAuthorAvatar.initials}
                         </div>
                         <div>
-                          <strong>{comment.authorName}:</strong> {comment.text} 
-                          <span className="text-muted-foreground text-[10px] ml-1">({format(new Date(comment.createdAt), "p")})</span>
+                          <strong>{comment.authorName}:</strong> {comment.text}
+                          {commentDate && isValid(commentDate) && (
+                             <span className="text-muted-foreground text-[10px] ml-1">({format(commentDate, "p")})</span>
+                          )}
                         </div>
                       </li>
                     );
@@ -117,11 +123,11 @@ export function ItineraryItemCard({ item, members, currentUserId, onEdit, onDele
           </>
         )}
          { canComment ? (
-            <ItineraryCommentForm 
-              itineraryItemId={item.id} 
-              members={members} 
-              currentUserId={currentUserId} 
-              onAddComment={onAddComment} 
+            <ItineraryCommentForm
+              itineraryItemId={item.id}
+              members={members}
+              currentUserId={currentUserId}
+              onAddComment={onAddComment}
             />
           ) : (
             <p className="text-xs text-muted-foreground pt-1">Select your user profile to add comments.</p>
@@ -129,7 +135,10 @@ export function ItineraryItemCard({ item, members, currentUserId, onEdit, onDele
       </CardContent>
 
        <CardFooter className="text-xs text-muted-foreground pt-2 border-t">
-        Added on: {format(new Date(item.createdAt), "MMM d, yyyy")}
+        {/* Updated date formatting to be more robust */}
+        Added on: {isDate(item.createdAt) && isValid(item.createdAt as Date)
+            ? format(item.createdAt as Date, "MMM d, yyyy")
+            : 'Date not set'}
       </CardFooter>
     </Card>
   );

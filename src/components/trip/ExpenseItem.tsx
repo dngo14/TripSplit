@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import type { Expense, Member } from '@/lib/types';
 import { User, CalendarDays, Tag, MessageSquare, DollarSign, Split, Edit, Trash2, Paperclip as PaperclipIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid, isDate } from 'date-fns'; // Import isValid and isDate
 import { CommentForm } from './CommentForm';
 import { ScrollArea } from '../ui/scroll-area';
 import { Button } from '../ui/button';
@@ -26,7 +26,7 @@ interface ExpenseItemProps {
   currentUserId: string;
   onAddComment: (expenseId: string, authorId: string, text: string) => void;
   onDeleteExpense: (expenseId: string) => void;
-  onEditExpense: (expense: Expense) => void; 
+  onEditExpense: (expense: Expense) => void;
 }
 
 export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onAddComment, onDeleteExpense, onEditExpense }: ExpenseItemProps) {
@@ -44,16 +44,16 @@ export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onA
             return "Split equally (all)";
         }
         if (involvedMemberIds.size > 0) return `Split equally (${involvedMemberIds.size} members)`;
-        return "Split equally (all)"; 
+        return "Split equally (all)";
       case 'byAmount':
         return "Split by amount";
       case 'byPercentage':
         return "Split by percentage";
       default:
-        return "Split equally (all)"; 
+        return "Split equally (all)";
     }
   };
-  
+
   const canComment = !!currentUserId && members.some(m => m.id === currentUserId);
 
   return (
@@ -107,10 +107,16 @@ export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onA
               Paid by: {paidByMember.name}
             </span>
           )}
-          <span className="flex items-center"><CalendarDays className="mr-1 h-3 w-3" /> {format(new Date(expense.date), "MMM d, yyyy")}</span>
+          <span className="flex items-center">
+            <CalendarDays className="mr-1 h-3 w-3" />
+            {/* Updated date formatting to be more robust */}
+            {isDate(expense.date) && isValid(expense.date as Date)
+              ? format(expense.date as Date, "MMM d, yyyy")
+              : 'Date not set'}
+          </span>
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="pt-2 pb-2">
         {expense.comments.length > 0 && (
           <>
@@ -119,14 +125,17 @@ export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onA
               <ul className="space-y-1 text-xs">
                 {expense.comments.map((comment) => {
                     const commentAuthorAvatar = getAvatarData(comment.authorName);
+                    const commentDate = comment.createdAt ? (comment.createdAt instanceof Date ? comment.createdAt : (comment.createdAt as any).toDate?.()) : null;
                     return (
                       <li key={comment.id} className="bg-background/50 p-1.5 rounded flex items-start gap-1.5">
                         <div className={`mt-0.5 w-5 h-5 rounded-full ${commentAuthorAvatar.bgColor} flex items-center justify-center text-white font-semibold text-[10px] flex-shrink-0`}>
                           {commentAuthorAvatar.initials}
                         </div>
                         <div>
-                          <strong>{comment.authorName}:</strong> {comment.text} 
-                          <span className="text-muted-foreground text-[10px] ml-1">({format(new Date(comment.createdAt), "p")})</span>
+                          <strong>{comment.authorName}:</strong> {comment.text}
+                          {commentDate && isValid(commentDate) && (
+                            <span className="text-muted-foreground text-[10px] ml-1">({format(commentDate, "p")})</span>
+                          )}
                         </div>
                       </li>
                     );
@@ -136,11 +145,11 @@ export function ExpenseItem({ expense, members, tripCurrency, currentUserId, onA
           </>
         )}
          { canComment ? (
-            <CommentForm 
-              expenseId={expense.id} 
-              members={members} 
-              currentUserId={currentUserId} 
-              onAddComment={onAddComment} 
+            <CommentForm
+              expenseId={expense.id}
+              members={members}
+              currentUserId={currentUserId}
+              onAddComment={onAddComment}
             />
           ) : (
             <p className="text-xs text-muted-foreground pt-1">Select your user profile to add comments.</p>
