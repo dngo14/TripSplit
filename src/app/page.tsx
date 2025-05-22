@@ -70,6 +70,7 @@ const prepareDataForFirestore = (data: any): any => {
   }
 
   // Check if 'data' is a plain object that should be recursed into.
+  // Object.prototype.isPrototypeOf(data) is another way, but this is common for simple objects
   if (typeof data === 'object' && data !== null && Object.getPrototypeOf(data) === Object.prototype) {
     const res: { [key: string]: any } = {};
     for (const key in data) {
@@ -133,8 +134,8 @@ export default function TripPage() {
       querySnapshot.forEach((docSnapshot) => {
         const rawData = docSnapshot.data();
         
+        // Ensure essential arrays and fields have default values if missing
         const tripDataWithGuaranteedArrays = {
-          ...rawData,
           tripName: rawData.tripName || 'Untitled Trip',
           currency: rawData.currency || CURRENCIES[0],
           creatorUID: rawData.creatorUID || '',
@@ -143,6 +144,7 @@ export default function TripPage() {
           itinerary: Array.isArray(rawData.itinerary) ? rawData.itinerary.filter(i => i != null) : [],
           chatMessages: Array.isArray(rawData.chatMessages) ? rawData.chatMessages.filter(c => c != null) : [],
           memberUIDs: Array.isArray(rawData.memberUIDs) ? rawData.memberUIDs.filter(uid => uid != null) : [],
+          ...rawData, // Spread the rest of rawData to keep other fields
         };
         
         const tripDataWithDates = convertTimestampsToDates(tripDataWithGuaranteedArrays) as Omit<TripData, 'id'>;
@@ -172,7 +174,7 @@ export default function TripPage() {
                 setCurrentUserId(newActiveTrip.members[0].id);
              } else if (newActiveTrip.members.length > 0 && newActiveTrip.creatorUID === user.uid) {
                 // Fallback if logged-in user is creator but not explicitly in members list by UID.
-                // This scenario should ideally be handled by ensuring creator is always in members list.
+                 // This scenario should ideally be handled by ensuring creator is always in members list.
                 setCurrentUserId(user.uid);
              }
               else {
@@ -812,7 +814,7 @@ export default function TripPage() {
 
         {activeTrip && user && (
           <Tabs defaultValue="activity" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-5 mb-6">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 mb-6">
               <TabsTrigger value="manage" className="flex items-center gap-2"><Settings className="h-4 w-4"/> Manage</TabsTrigger>
               <TabsTrigger value="info" className="flex items-center gap-2"><InfoIcon className="h-4 w-4"/> Trip Info</TabsTrigger>
               <TabsTrigger value="activity" className="flex items-center gap-2"><Activity className="h-4 w-4"/> Activity</TabsTrigger>
@@ -1010,3 +1012,6 @@ export default function TripPage() {
     </div>
   );
 }
+
+
+    
