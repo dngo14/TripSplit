@@ -21,7 +21,7 @@ interface TripSettingsProps {
   currency: string;
   onCurrencyChange: (currency: string) => void;
   onDeleteTrip: () => void;
-  isCreator: boolean; // New prop
+  isCreator: boolean;
 }
 
 export function TripSettings({ 

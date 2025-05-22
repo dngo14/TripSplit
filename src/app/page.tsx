@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { db, Timestamp, User as FirebaseUser } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot, arrayUnion, arrayRemove, writeBatch, getDocs, limit, runTransaction } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot, arrayUnion, arrayRemove, writeBatch, getDocs, limit, runTransaction, FieldValue } from 'firebase/firestore'; // Added FieldValue
 
 import { AppHeader } from '@/components/layout/Header';
 import { MemberManager } from '@/components/trip/MemberManager';
@@ -17,6 +17,7 @@ import { ItineraryList } from '@/components/trip/ItineraryList';
 import { ItineraryFormDialog } from '@/components/trip/ItineraryFormDialog';
 import { EditItineraryItemDialog } from '@/components/trip/EditItineraryItemDialog';
 import { TripInfo } from '@/components/trip/TripInfo';
+import { AiTripIdeation } from '@/components/trip/AiTripIdeation'; // Added AI Trip Ideation component
 
 import type { AppState, TripData, Member, Expense, Comment as ExpenseComment, ChatMessage, ItineraryItem, ItineraryComment, SplitDetail } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
@@ -29,8 +30,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; // Added ScrollBar
-import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon, LogIn, Coins, Loader2 } from 'lucide-react';
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon, LogIn, Coins, Loader2, Wand2 } from 'lucide-react'; // Added Wand2
 import { useAuth } from '@/contexts/AuthContext';
 
 // Helper to convert Firestore Timestamps to JS Dates in nested structures
@@ -60,7 +61,6 @@ const convertTimestampsToDates = (data: any): any => {
 // - Recursively processes plain objects and arrays.
 const prepareDataForFirestore = (data: any): any => {
   if (data instanceof Timestamp || (typeof data === 'object' && data !== null && data.constructor && data.constructor.name === 'FieldValue')) {
-    // Pass through Firestore Timestamps and FieldValues (like arrayUnion, arrayRemove, serverTimestamp)
     return data;
   }
   if (data instanceof Date) return Timestamp.fromDate(data);
@@ -69,7 +69,7 @@ const prepareDataForFirestore = (data: any): any => {
   if (Array.isArray(data)) {
     return data.map(prepareDataForFirestore);
   }
-
+  
   // Check if 'data' is a plain object that should be recursed into.
   if (typeof data === 'object' && data !== null && Object.getPrototypeOf(data) === Object.prototype) {
     const res: { [key: string]: any } = {};
@@ -224,14 +224,14 @@ export default function TripPage() {
         newTripCurrency,
         user.uid,
         user.displayName || user.email || "Trip Creator",
-        user.email?.toLowerCase()
+        user.email?.toLowerCase() 
     );
 
     const tripDataForFirestore = prepareDataForFirestore(initialTripData);
 
     try {
       const docRef = await addDoc(collection(db, "trips"), tripDataForFirestore);
-      toast({ title: "Trip Created", description: `"${initialTripData.tripName}" has been created. You've been added as the first member.`});
+      toast({ title: "Trip Created", description: `"${initialTripData.tripName}" created. You've been added as the first member.`});
       setNewTripName('');
       setNewTripCurrency(CURRENCIES[0]);
       setIsCreateTripDialogOpen(false);
@@ -275,13 +275,9 @@ export default function TripPage() {
     const normalizedName = name.trim();
     const email = emailInput ? emailInput.trim().toLowerCase() : undefined;
 
-    if (activeTrip.members.some(m => m.name.toLowerCase() === normalizedName.toLowerCase())) {
-      toast({ title: "Member Name Exists", description: `A member named "${normalizedName}" is already in this trip's display list.`, variant: "destructive" });
+    if (activeTrip.members.some(m => m.name.toLowerCase() === normalizedName.toLowerCase() && m.email?.toLowerCase() === email)) {
+      toast({ title: "Member Exists", description: `A member named "${normalizedName}" ${email ? `with email "${email}"` : ''} is already in this trip's display list.`, variant: "destructive" });
       return;
-    }
-    if (email && activeTrip.members.some(m => m.email?.toLowerCase() === email)) {
-       toast({ title: "Member Email Exists", description: `A member with email "${email}" is already in this trip's display list.`, variant: "destructive" });
-       return;
     }
     
     if (email) {
@@ -294,12 +290,15 @@ export default function TripPage() {
                 const existingUserDoc = querySnapshot.docs[0];
                 const existingUserData = existingUserDoc.data() as { uid: string, name?: string, displayName?: string, email: string };
                 const existingUserUID = existingUserData.uid;
+                const memberDisplayName = existingUserData.displayName || existingUserData.name || normalizedName;
+
 
                 if (activeTrip.memberUIDs.includes(existingUserUID)) {
-                    toast({ title: "Member Already Has Access", description: `"${existingUserData.displayName || existingUserData.name || normalizedName}" (email: ${email}) already has access to this trip. Their display details will be updated if necessary.`, duration: 7000 });
+                    toast({ title: "Member Already Has Access", description: `"${memberDisplayName}" (email: ${email}) already has access to this trip. Their display details will be updated if necessary.`, duration: 7000 });
+                    // Optionally update their display details in the 'members' array if different
                     const memberInDisplayList = activeTrip.members.find(m => m.id === existingUserUID);
-                    if (memberInDisplayList && (memberInDisplayList.name !== (existingUserData.displayName || existingUserData.name || normalizedName) || memberInDisplayList.email !== email)) {
-                        const updatedDisplayMember: Member = { ...memberInDisplayList, name: existingUserData.displayName || existingUserData.name || normalizedName, email };
+                    if (memberInDisplayList && (memberInDisplayList.name !== memberDisplayName || memberInDisplayList.email !== email)) {
+                        const updatedDisplayMember: Member = { ...memberInDisplayList, name: memberDisplayName, email };
                         const otherMembers = activeTrip.members.filter(m => m.id !== existingUserUID);
                         const preparedMembers = [...otherMembers.map(prepareDataForFirestore), prepareDataForFirestore(updatedDisplayMember)];
                         await updateActiveTripInFirestore({ members: preparedMembers });
@@ -307,18 +306,19 @@ export default function TripPage() {
                     return;
                 }
 
-                const memberToAdd: Member = { id: existingUserUID, name: existingUserData.displayName || existingUserData.name || normalizedName, email };
-                const preparedMemberToAdd = prepareDataForFirestore(memberToAdd);
-                await updateActiveTripInFirestore({ 
-                    memberUIDs: arrayUnion(existingUserUID) as any, 
-                    members: arrayUnion(preparedMemberToAdd) as any 
-                });
+                // User found, grant them access and add to display list
+                const memberToAdd: Member = { id: existingUserUID, name: memberDisplayName, email };
+                const updatePayload:any = { 
+                    memberUIDs: arrayUnion(existingUserUID) as unknown as FieldValue, 
+                    members: arrayUnion(prepareDataForFirestore(memberToAdd)) as unknown as FieldValue
+                };
+                await updateActiveTripInFirestore(updatePayload);
                 toast({ title: "Member Invited & Access Granted", description: `"${memberToAdd.name}" (email: ${email}) has been invited. They can now see and edit this trip when they log in.`, duration: 8000 });
 
             } else {
+                // No registered user found with this email, add to display roster only
                 const newDisplayMemberRaw: Member = { id: crypto.randomUUID(), name: normalizedName, email };
-                const preparedNewDisplayMember = prepareDataForFirestore(newDisplayMemberRaw);
-                await updateActiveTripInFirestore({ members: arrayUnion(preparedNewDisplayMember) as any });
+                await updateActiveTripInFirestore({ members: arrayUnion(prepareDataForFirestore(newDisplayMemberRaw)) as unknown as FieldValue });
                 toast({ 
                     title: "Member Added to Roster (Registration Needed for Full Access)", 
                     description: `"${normalizedName}" (email: ${email}) added to trip roster. No registered user found with this email. For them to edit, they must sign up for TripSplit with this email. Then, try adding them again by email to grant access.`, 
@@ -329,10 +329,9 @@ export default function TripPage() {
             console.error("Error finding user by email or updating trip:", error);
             toast({ title: "Error Adding Member", description: "Could not process member addition. Please try again.", variant: "destructive" });
         }
-    } else { // No email provided
+    } else { // No email provided, add to display roster only
         const newDisplayMemberRaw: Member = { id: crypto.randomUUID(), name: normalizedName, email: undefined }; 
-        const preparedNewDisplayMember = prepareDataForFirestore(newDisplayMemberRaw);
-        await updateActiveTripInFirestore({ members: arrayUnion(preparedNewDisplayMember) as any });
+        await updateActiveTripInFirestore({ members: arrayUnion(prepareDataForFirestore(newDisplayMemberRaw)) as unknown as FieldValue });
         toast({ 
             title: "Member Added to Display Roster", 
             description: `"${normalizedName}" has been added to this trip's display list (e.g., for assigning expenses). Without an email, they cannot be automatically granted edit access.`, 
@@ -807,6 +806,7 @@ export default function TripPage() {
                 <TabsList className="inline-flex h-10 items-center rounded-md bg-muted p-1 text-muted-foreground">
                   <TabsTrigger value="manage" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Settings className="h-4 w-4"/> Manage</TabsTrigger>
                   <TabsTrigger value="info" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><InfoIcon className="h-4 w-4"/> Trip Info</TabsTrigger>
+                  <TabsTrigger value="ai-plan" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Wand2 className="h-4 w-4"/> Plan with AI</TabsTrigger>
                   <TabsTrigger value="activity" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Activity className="h-4 w-4"/> Activity</TabsTrigger>
                   <TabsTrigger value="itinerary" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MapPin className="h-4 w-4"/> Itinerary</TabsTrigger>
                   <TabsTrigger value="chat" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MessageSquare className="h-4 w-4"/> Chat</TabsTrigger>
@@ -837,6 +837,10 @@ export default function TripPage() {
                     tripData={activeTrip}
                     onTripInfoChange={handleTripInfoChange}
                 />
+            </TabsContent>
+            
+            <TabsContent value="ai-plan">
+                <AiTripIdeation />
             </TabsContent>
 
             <TabsContent value="activity">
@@ -1005,6 +1009,3 @@ export default function TripPage() {
     </div>
   );
 }
-
-
-    
