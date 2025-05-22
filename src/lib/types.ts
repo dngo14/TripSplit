@@ -1,91 +1,98 @@
 
+import type { Timestamp } from 'firebase/firestore'; // Import Timestamp
+
 export interface Member {
-  id: string;
+  id: string; // This can be a custom ID or Firebase UID if linked
   name: string;
-  email?: string; // Optional: For future use with actual user accounts
+  email?: string; 
 }
 
-export interface Comment { // For Expenses
+export interface Comment {
   id: string;
   expenseId: string;
-  authorId: string; // Member ID
-  authorName: string; // Member Name
+  authorId: string; 
+  authorName: string; 
   text: string;
-  createdAt: Date;
+  createdAt: Date | Timestamp; // Allow both for easier handling before/after Firestore conversion
 }
 
 export type SplitType = 'equally' | 'byAmount' | 'byPercentage';
 
 export interface SplitDetail {
   memberId: string;
-  amount?: number; // For 'byAmount'
-  percentage?: number; // For 'byPercentage'
-  // For 'equally', only memberId is needed if not splitting among all
+  amount?: number; 
+  percentage?: number; 
 }
 
 export interface Expense {
   id: string;
   description: string;
   amount: number;
-  paidById: string; // Member ID
+  paidById: string; 
   category?: string;
   comments: Comment[];
-  createdAt: Date;
-  date: Date;
+  createdAt: Date | Timestamp;
+  date: Date | Timestamp;
   splitType: SplitType;
-  splitDetails: SplitDetail[]; // Details of how the expense is split
-  receiptImageUri?: string; // To store the receipt image as a data URI
+  splitDetails: SplitDetail[]; 
+  receiptImageUri?: string; 
 }
 
 export interface ChatMessage {
   id: string;
-  senderId: string; // Member ID
-  senderName: string; // Member Name
+  senderId: string; 
+  senderName: string; 
   text: string;
-  createdAt: Date;
+  createdAt: Date | Timestamp;
 }
 
 export interface ItineraryComment {
   id: string;
-  authorId: string; // Member ID
-  authorName: string; // Member Name
+  authorId: string; 
+  authorName: string; 
   text: string;
-  createdAt: Date;
+  createdAt: Date | Timestamp;
 }
 
 export interface ItineraryItem {
   id: string;
   placeName: string;
   address: string;
-  visitDate: Date;
+  visitDate: Date | Timestamp;
   notes: string;
-  createdAt: Date;
+  createdAt: Date | Timestamp;
   comments: ItineraryComment[];
 }
 
 export interface TripData {
-  id: string; // Unique ID for the trip
+  id: string; 
   tripName: string;
   members: Member[];
   expenses: Expense[];
   chatMessages: ChatMessage[];
-  currency: string; // e.g., "USD", "EUR"
+  currency: string; 
   itinerary: ItineraryItem[];
-  // New fields for Trip Info
+  
   accommodationAddress?: string;
-  tripStartDate?: Date;
-  tripEndDate?: Date;
+  tripStartDate?: Date | Timestamp;
+  tripEndDate?: Date | Timestamp;
   flightDetails?: string;
-  notes?: string; // General trip notes
+  notes?: string; 
+
+  // Firestore specific fields
+  creatorUID: string; // Firebase Auth UID of the trip creator
+  memberUIDs: string[]; // Array of Firebase Auth UIDs of users who are members of this trip
+  lastUpdatedAt?: Timestamp; // For ordering or tracking
 }
 
 export interface AppState {
   trips: TripData[];
   activeTripId: string | null;
+  // No longer storing currentUser in AppState, will rely on AuthContext
 }
 
 export interface Settlement {
-  from: string; // Member name
-  to: string;   // Member name
+  from: string; 
+  to: string;   
   amount: number;
 }

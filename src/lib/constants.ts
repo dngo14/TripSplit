@@ -1,13 +1,19 @@
 
-import type { TripData, AppState } from './types';
+import type { TripData, AppState, Member } from './types';
+import { Timestamp } from 'firebase/firestore';
 
 export const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "INR"];
 
-export function createInitialTripData(name: string, currency: string = "USD"): TripData {
+export function createInitialTripData(name: string, currency: string = "USD", creatorUID: string, creatorName?: string, creatorEmail?: string): Omit<TripData, 'id'> {
+  const creatorMember: Member = {
+    id: creatorUID, // Use Firebase UID as member ID for the creator
+    name: creatorName || "Trip Creator",
+    email: creatorEmail || undefined,
+  };
+  
   return {
-    id: crypto.randomUUID(),
     tripName: name,
-    members: [],
+    members: [creatorMember], // Add creator as the first member
     expenses: [],
     chatMessages: [],
     currency: currency,
@@ -17,6 +23,9 @@ export function createInitialTripData(name: string, currency: string = "USD"): T
     tripEndDate: undefined,
     flightDetails: '',
     notes: '',
+    creatorUID: creatorUID,
+    memberUIDs: [creatorUID], // Creator is initially the only member
+    lastUpdatedAt: Timestamp.now(),
   };
 }
 
@@ -24,4 +33,3 @@ export const INITIAL_APP_STATE: AppState = {
   trips: [],
   activeTripId: null,
 };
-
