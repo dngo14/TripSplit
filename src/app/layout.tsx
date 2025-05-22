@@ -1,10 +1,10 @@
 import type {Metadata} from 'next';
-import {Geist, Geist_Mono} from 'next/font/google';
+import { Inter, Geist_Mono } from 'next/font/google'; // Changed Geist to Inter
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const inter = Inter({ // Changed from geistSans to inter
+  variable: '--font-inter', // Changed variable name
   subsets: ['latin'],
 });
 
@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Toaster />
       </body>
