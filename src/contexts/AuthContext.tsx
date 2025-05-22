@@ -3,8 +3,9 @@
 
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { auth, googleProvider, signInWithPopup as firebaseSignInWithPopup, signOut as firebaseSignOut, type User } from '@/lib/firebase';
+import { auth, googleProvider, signInWithPopup as firebaseSignInWithPopup, signOut as firebaseSignOut, type User, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
@@ -22,14 +23,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      setLoading(false);
       if (currentUser) {
         console.log("AuthContext: User signed in - ", currentUser.uid, currentUser.email);
+        // Create or update user profile in Firestore
+        try {
+          const userRef = doc(db, "users", currentUser.uid);
+          await setDoc(userRef, {
+            uid: currentUser.uid,
+            email: currentUser.email ? currentUser.email.toLowerCase() : null, // Store email as lowercase
+            displayName: currentUser.displayName || '',
+            lastLogin: serverTimestamp()
+          }, { merge: true }); // Merge true to avoid overwriting other fields if any
+          console.log("AuthContext: User profile updated in Firestore for UID:", currentUser.uid);
+        } catch (error) {
+          console.error("AuthContext: Error updating user profile in Firestore:", error);
+          // Optionally notify user or log more detailed error
+        }
       } else {
         console.log("AuthContext: User signed out.");
       }
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -39,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("AuthContext: Attempting Google Sign-In...");
     try {
       const result = await firebaseSignInWithPopup(auth, googleProvider);
-      // User state will be updated by onAuthStateChanged listener
+      // User state and Firestore profile update will be handled by onAuthStateChanged listener
       console.log("AuthContext: Google Sign-In successful. User data (from popup):", result.user?.uid, result.user?.email);
       toast({ title: "Signed In", description: "Successfully signed in with Google." });
     } catch (error: any) {
@@ -61,11 +76,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: "Sign In Failed", 
         description: description,
         variant: "destructive",
-        duration: 15000, // Longer duration for this specific error message
+        duration: 15000, 
       });
-      setLoading(false); // Reset loading on error
+      setLoading(false); 
     }
-    // setLoading(false) is handled by onAuthStateChanged or the catch block
   };
 
   const signOut = async () => {
@@ -73,7 +87,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("AuthContext: Attempting Sign-Out...");
     try {
       await firebaseSignOut(auth);
-      // User state will be updated by onAuthStateChanged
       toast({ title: "Signed Out", description: "Successfully signed out." });
     } catch (error: any) {
       console.error("AuthContext: Sign-Out Failed. Raw error object:", error);
@@ -84,9 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "Could not sign out.", 
         variant: "destructive" 
       });
-      setLoading(false); // Reset loading on error
+      setLoading(false);
     }
-    // setLoading(false) is handled by onAuthStateChanged or the catch block
   };
 
   return (
