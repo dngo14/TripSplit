@@ -19,8 +19,8 @@ export function createInitialTripData(name: string, currency: string = "USD", cr
     currency: currency,
     itinerary: [],
     accommodationAddress: '',
-    tripStartDate: undefined,
-    tripEndDate: undefined,
+    tripStartDate: null, // Changed from undefined
+    tripEndDate: null,   // Changed from undefined
     flightDetails: '',
     notes: '',
     creatorUID: creatorUID,
