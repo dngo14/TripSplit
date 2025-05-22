@@ -29,7 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon, LogIn, Coins, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -224,7 +224,7 @@ export default function TripPage() {
         newTripCurrency,
         user.uid,
         user.displayName || user.email || "Trip Creator",
-        user.email?.toLowerCase()
+        user.email?.toLowerCase() // Ensure email is passed as lowercase
     );
 
     const tripDataForFirestore = prepareDataForFirestore(initialTripData);
@@ -235,6 +235,8 @@ export default function TripPage() {
       setNewTripName('');
       setNewTripCurrency(CURRENCIES[0]);
       setIsCreateTripDialogOpen(false);
+      // No need to manually set activeTripId here, onSnapshot will pick it up.
+      // setCurrentUserId will also be handled by onSnapshot's logic.
     } catch (error) {
       console.error("Error creating new trip in Firestore:", error);
       toast({ title: "Error Creating Trip", description: "Could not save the new trip to the database.", variant: "destructive"});
@@ -264,27 +266,29 @@ export default function TripPage() {
   }, [activeTrip, user, toast]);
 
 
- const handleAddMember = async (name: string, emailInput?: string) => {
+  const handleAddMember = async (name: string, emailInput?: string) => {
     if (!activeTrip || !user) return;
 
     if (user.uid !== activeTrip.creatorUID) {
       toast({ title: "Permission Denied", description: "Only the trip creator can add new members.", variant: "destructive" });
       return;
     }
-
+    
+    const normalizedName = name.trim();
     const email = emailInput ? emailInput.trim().toLowerCase() : undefined;
 
-    if (activeTrip.members.find(m => m.name.toLowerCase() === name.toLowerCase())) {
-      toast({ title: "Member Name Exists", description: `A member named "${name}" is already in this trip's display list.`, variant: "destructive" });
+    // Check if member display name already exists
+    if (activeTrip.members.some(m => m.name.toLowerCase() === normalizedName.toLowerCase())) {
+      toast({ title: "Member Name Exists", description: `A member named "${normalizedName}" is already in this trip's display list.`, variant: "destructive" });
       return;
+    }
+    // If email is provided, check if that email is already in the display list
+    if (email && activeTrip.members.some(m => m.email?.toLowerCase() === email)) {
+       toast({ title: "Member Email Exists", description: `A member with email "${email}" is already in this trip's display list.`, variant: "destructive" });
+       return;
     }
     
     if (email) {
-        if (activeTrip.members.find(m => m.email?.toLowerCase() === email)) {
-            toast({ title: "Member Email Exists", description: `A member with email "${email}" is already in this trip's display list.`, variant: "destructive" });
-            return;
-        }
-
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", email), limit(1));
         
@@ -296,10 +300,10 @@ export default function TripPage() {
                 const existingUserUID = existingUserData.uid;
 
                 if (activeTrip.memberUIDs.includes(existingUserUID)) {
-                    toast({ title: "Member Already Has Access", description: `"${existingUserData.displayName || existingUserData.name || name}" (email: ${email}) already has access to this trip. Their display details will be updated if necessary.`, duration: 7000 });
+                    toast({ title: "Member Already Has Access", description: `"${existingUserData.displayName || existingUserData.name || normalizedName}" (email: ${email}) already has access to this trip. Their display details will be updated if necessary.`, duration: 7000 });
                     const memberInDisplayList = activeTrip.members.find(m => m.id === existingUserUID);
-                    if (memberInDisplayList && (memberInDisplayList.name !== (existingUserData.displayName || existingUserData.name || name) || memberInDisplayList.email !== email)) {
-                        const updatedDisplayMember: Member = { ...memberInDisplayList, name: existingUserData.displayName || existingUserData.name || name, email };
+                    if (memberInDisplayList && (memberInDisplayList.name !== (existingUserData.displayName || existingUserData.name || normalizedName) || memberInDisplayList.email !== email)) {
+                        const updatedDisplayMember: Member = { ...memberInDisplayList, name: existingUserData.displayName || existingUserData.name || normalizedName, email };
                         const otherMembers = activeTrip.members.filter(m => m.id !== existingUserUID);
                         const preparedMembers = [...otherMembers.map(prepareDataForFirestore), prepareDataForFirestore(updatedDisplayMember)];
                         await updateActiveTripInFirestore({ members: preparedMembers });
@@ -307,7 +311,7 @@ export default function TripPage() {
                     return;
                 }
 
-                const memberToAdd: Member = { id: existingUserUID, name: existingUserData.displayName || existingUserData.name || name, email };
+                const memberToAdd: Member = { id: existingUserUID, name: existingUserData.displayName || existingUserData.name || normalizedName, email };
                 const preparedMemberToAdd = prepareDataForFirestore(memberToAdd);
                 await updateActiveTripInFirestore({ 
                     memberUIDs: arrayUnion(existingUserUID) as any, 
@@ -316,12 +320,12 @@ export default function TripPage() {
                 toast({ title: "Member Invited & Access Granted", description: `"${memberToAdd.name}" (email: ${email}) has been invited. They can now see and edit this trip when they log in.`, duration: 8000 });
 
             } else {
-                const newDisplayMemberRaw: Member = { id: crypto.randomUUID(), name, email };
+                const newDisplayMemberRaw: Member = { id: crypto.randomUUID(), name: normalizedName, email };
                 const preparedNewDisplayMember = prepareDataForFirestore(newDisplayMemberRaw);
                 await updateActiveTripInFirestore({ members: arrayUnion(preparedNewDisplayMember) as any });
                 toast({ 
                     title: "Member Added to Roster (Registration Needed for Full Access)", 
-                    description: `"${name}" (email: ${email}) added to trip roster. No registered user found with this email. For them to edit, they must sign up for TripSplit with this email. Then, try adding them again by email to grant access.`, 
+                    description: `"${normalizedName}" (email: ${email}) added to trip roster. No registered user found with this email. For them to edit, they must sign up for TripSplit with this email. Then, try adding them again by email to grant access.`, 
                     duration: 15000 
                 });
             }
@@ -329,13 +333,13 @@ export default function TripPage() {
             console.error("Error finding user by email or updating trip:", error);
             toast({ title: "Error Adding Member", description: "Could not process member addition. Please try again.", variant: "destructive" });
         }
-    } else {
-        const newDisplayMemberRaw: Member = { id: crypto.randomUUID(), name, email: undefined }; 
+    } else { // No email provided
+        const newDisplayMemberRaw: Member = { id: crypto.randomUUID(), name: normalizedName, email: undefined }; 
         const preparedNewDisplayMember = prepareDataForFirestore(newDisplayMemberRaw);
         await updateActiveTripInFirestore({ members: arrayUnion(preparedNewDisplayMember) as any });
         toast({ 
             title: "Member Added to Display Roster", 
-            description: `"${name}" has been added to this trip's display list (e.g., for assigning expenses). Without an email, they cannot be automatically granted edit access.`, 
+            description: `"${normalizedName}" has been added to this trip's display list (e.g., for assigning expenses). Without an email, they cannot be automatically granted edit access.`, 
             duration: 10000 
         });
     }
@@ -353,12 +357,13 @@ export default function TripPage() {
     const memberToRemove = activeTrip.members.find(m => m.id === idToRemove);
     if (!memberToRemove) return;
 
+    // Prevent creator from removing their own UID if they are the sole editor or removing their own display member if they are the sole member
     if (memberToRemove.id === user.uid && activeTrip.creatorUID === user.uid) {
         if (activeTrip.memberUIDs.length === 1 && activeTrip.memberUIDs[0] === user.uid) {
              toast({ title: "Action Blocked", description: "As creator and sole editor, you cannot remove your own access. To leave, delete the trip or add another editor first.", variant: "destructive", duration: 10000});
              return;
         }
-         if (activeTrip.members.length === 1) {
+         if (activeTrip.members.length === 1) { // This check is for the display members list
              toast({ title: "Cannot Remove Self", description: "You are the only member. To remove yourself, delete the trip or invite another member first.", variant: "destructive", duration: 7000});
              return;
         }
@@ -378,7 +383,10 @@ export default function TripPage() {
     const preparedMemberToRemove = prepareDataForFirestore(memberToRemove);
     const updatePayload: any = { members: arrayRemove(preparedMemberToRemove) };
 
+    // If the member being removed from the display list also had their UID in memberUIDs, remove that UID too
+    // This is important for members added via email lookup who used their Firebase UID as their `member.id`
     if (activeTrip.memberUIDs.includes(idToRemove)) {
+       // Additional check: do not remove the creator's UID if they are the only one with access
        if (idToRemove === activeTrip.creatorUID && activeTrip.memberUIDs.length === 1) {
             toast({ title: "Action Blocked", description: "Cannot remove the trip creator's edit access if they are the only one with access.", variant: "destructive", duration: 8000});
             return;
@@ -389,6 +397,7 @@ export default function TripPage() {
     if (currentUserId === idToRemove) {
       const remainingMembers = activeTrip.members.filter(member => member.id !== idToRemove);
       if (remainingMembers.length > 0) {
+        // Prefer setting currentUserId to the logged-in user if they are still a member, otherwise to the first remaining member
         setCurrentUserId(remainingMembers.find(m => m.id === user.uid)?.id || remainingMembers[0].id);
       } else {
         setCurrentUserId('');
@@ -493,6 +502,9 @@ export default function TripPage() {
         toast({ title: "Expense Updated", description: `"${updatedExpenseData.description}" has been updated.` });
     } catch (error) {
         console.error("Error updating expense with batch:", error);
+        // Fallback to individual updates (less ideal but better than nothing)
+        // This might be less atomic, but could recover from specific batch errors.
+        // For robust production, more sophisticated error handling or retries might be needed.
         const currentExpenses = activeTrip.expenses.filter(exp => exp.id !== expenseToEdit.id);
         const updatedExpensesForFirestore = [...currentExpenses.map(prepareDataForFirestore), preparedUpdatedExpense];
         await updateActiveTripInFirestore({ expenses: updatedExpensesForFirestore });
@@ -803,13 +815,15 @@ export default function TripPage() {
         {activeTrip && user && (
           <Tabs defaultValue="activity" className="w-full">
             <ScrollArea orientation="horizontal" className="pb-2.5">
-              <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground whitespace-nowrap mb-6">
-                <TabsTrigger value="manage" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Settings className="h-4 w-4"/> Manage</TabsTrigger>
-                <TabsTrigger value="info" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><InfoIcon className="h-4 w-4"/> Trip Info</TabsTrigger>
-                <TabsTrigger value="activity" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Activity className="h-4 w-4"/> Activity</TabsTrigger>
-                <TabsTrigger value="itinerary" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MapPin className="h-4 w-4"/> Itinerary</TabsTrigger>
-                <TabsTrigger value="chat" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MessageSquare className="h-4 w-4"/> Chat</TabsTrigger>
-              </TabsList>
+              <div className="flex justify-center">
+                <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground whitespace-nowrap mb-6">
+                  <TabsTrigger value="manage" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Settings className="h-4 w-4"/> Manage</TabsTrigger>
+                  <TabsTrigger value="info" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><InfoIcon className="h-4 w-4"/> Trip Info</TabsTrigger>
+                  <TabsTrigger value="activity" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><Activity className="h-4 w-4"/> Activity</TabsTrigger>
+                  <TabsTrigger value="itinerary" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MapPin className="h-4 w-4"/> Itinerary</TabsTrigger>
+                  <TabsTrigger value="chat" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"><MessageSquare className="h-4 w-4"/> Chat</TabsTrigger>
+                </TabsList>
+              </div>
             </ScrollArea>
 
             <TabsContent value="manage" className="space-y-6">
@@ -1002,8 +1016,3 @@ export default function TripPage() {
     </div>
   );
 }
-
-
-    
-
-      
