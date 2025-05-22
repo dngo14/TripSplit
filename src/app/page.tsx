@@ -82,6 +82,10 @@ export default function TripPage() {
         
         parsedData.trips = parsedData.trips.map(trip => ({
           ...trip,
+          members: trip.members.map(member => ({ // ensure email field compatibility
+            ...member,
+            email: member.email || undefined,
+          })),
           expenses: trip.expenses.map(exp => ({
             ...exp,
             createdAt: new Date(exp.createdAt),
@@ -209,7 +213,8 @@ export default function TripPage() {
     
     const firstMember: Member = {
       id: user.uid, // Use Firebase UID as member ID
-      name: user.displayName || user.email || "Trip Creator", 
+      name: user.displayName || user.email || "Trip Creator",
+      email: user.email || undefined, 
     };
 
     const newTripWithCreator: TripData = {
@@ -230,21 +235,20 @@ export default function TripPage() {
     toast({ title: "Trip Created", description: `"${newTripWithCreator.tripName}" has been created with you as the first member.`});
   };
 
-  const handleAddMember = (name: string) => {
+  const handleAddMember = (name: string, email?: string) => {
     if (!activeTrip) return;
     if (activeTrip.members.find(m => m.name.toLowerCase() === name.toLowerCase())) {
-      toast({ title: "Member exists", description: `A member named "${name}" already exists in this trip.`, variant: "destructive" });
+      toast({ title: "Member name exists", description: `A member named "${name}" already exists in this trip.`, variant: "destructive" });
       return;
     }
-    // Ensure new member ID (randomUUID) doesn't clash with the creator's Firebase UID if they try to add themselves again by a different name
-    // Though, typically users wouldn't add themselves again. If they do, a random UUID is fine.
-    // The creator is special and uses user.uid. Other members get random UUIDs.
-    const newMember: Member = { id: crypto.randomUUID(), name };
+    if (email && activeTrip.members.find(m => m.email?.toLowerCase() === email.toLowerCase())) {
+        toast({ title: "Member email exists", description: `A member with email "${email}" already exists in this trip.`, variant: "destructive" });
+        return;
+    }
+
+    const newMember: Member = { id: crypto.randomUUID(), name, email };
     updateActiveTrip(trip => {
       const updatedMembers = [...trip.members, newMember];
-      // No need to change currentUserId here, as the creator is already set, or another user is selected.
-      // If this is the *very first* member being added (besides the auto-added creator), 
-      // then currentUserId would have been the creator's.
       return { ...trip, members: updatedMembers };
     });
     toast({ title: "Member Added", description: `${name} has been added to "${activeTrip.tripName}".`});
@@ -252,6 +256,15 @@ export default function TripPage() {
 
   const handleRemoveMember = (id: string) => {
     if (!activeTrip) return;
+    // Prevent removing the original trip creator if their ID matches the Firebase user's UID
+    // This is a simple check; a more robust system would involve roles or checking if it's the *only* Firebase-linked user.
+    const memberToRemove = activeTrip.members.find(m => m.id === id);
+    if (user && memberToRemove && memberToRemove.id === user.uid && activeTrip.members.length === 1) {
+        toast({ title: "Cannot remove creator", description: "The trip creator cannot be removed if they are the only member.", variant: "destructive"});
+        return;
+    }
+
+
     updateActiveTrip(trip => {
       const isPayer = trip.expenses.some(exp => exp.paidById === id);
       const isInvolvedInSplit = trip.expenses.some(exp => 

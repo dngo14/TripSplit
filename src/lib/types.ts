@@ -2,6 +2,7 @@
 export interface Member {
   id: string;
   name: string;
+  email?: string; // Optional: For future use with actual user accounts
 }
 
 export interface Comment { // For Expenses
@@ -88,4 +89,3 @@ export interface Settlement {
   to: string;   // Member name
   amount: number;
 }
-

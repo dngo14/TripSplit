@@ -14,17 +14,17 @@ interface HeaderProps {
 export function AppHeader({ tripName }: HeaderProps) {
   const { user, loading, signInWithGoogle, signOut } = useAuth();
 
-  return (
-    <header className="bg-card text-card-foreground p-4 shadow-md sticky top-0 z-50">
+  return ( 
+    <header className="bg-card text-card-foreground p-4 shadow-md sticky top-0 z-50 w-full">
       <div className={cn(
         "container mx-auto flex items-center",
         user ? "justify-between" : "justify-center" // Center content if no user (sign-in page)
       )}>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-5">
           <Coins className="h-8 w-8 text-primary" /> {/* Ensure icon has contrast */}
           <h1 className="text-2xl font-bold">TripSplit</h1>
         </div>
-
+        
         {/* This section is only shown if a user is logged in */}
         {user && (
           <div className="flex items-center space-x-4">
