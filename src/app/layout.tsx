@@ -1,7 +1,9 @@
+
 import type {Metadata} from 'next';
 import { Inter, Geist_Mono } from 'next/font/google'; // Changed Geist to Inter
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from '@/contexts/AuthContext';
 
 const inter = Inter({ // Changed from geistSans to inter
   variable: '--font-inter', // Changed variable name
@@ -26,8 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

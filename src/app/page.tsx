@@ -13,7 +13,7 @@ import { EditExpenseDialog } from '@/components/trip/EditExpenseDialog';
 import { ItineraryList } from '@/components/trip/ItineraryList';
 import { ItineraryFormDialog } from '@/components/trip/ItineraryFormDialog';
 import { EditItineraryItemDialog } from '@/components/trip/EditItineraryItemDialog';
-import { TripInfo } from '@/components/trip/TripInfo'; // New import
+import { TripInfo } from '@/components/trip/TripInfo';
 
 import type { AppState, TripData, Member, Expense, Comment as ExpenseComment, ChatMessage, ItineraryItem, ItineraryComment } from '@/lib/types';
 import { INITIAL_APP_STATE, createInitialTripData, CURRENCIES } from '@/lib/constants';
@@ -26,22 +26,23 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon } from 'lucide-react'; // Added InfoIcon
+import { UserCircle, Briefcase, PlusCircle, Edit3, DollarSign as CurrencyIcon, Settings, Users, Activity, Trash2, MessageSquare, MapPin, CalendarPlus, InfoIcon, LogIn } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
-const LOCAL_STORAGE_KEY = 'tripSplitAppState_v2'; 
+const LOCAL_STORAGE_KEY_PREFIX = 'tripSplitAppState_v2_user_'; 
 
 export default function TripPage() {
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [appState, setAppState] = useState<AppState>(INITIAL_APP_STATE);
-  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>(''); // This still refers to the selected member *within* a trip
   const [isClient, setIsClient] = useState(false);
   const [isCreateTripDialogOpen, setIsCreateTripDialogOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
   const [newTripCurrency, setNewTripCurrency] = useState(CURRENCIES[0]);
   
-  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null); // Generic ID for deletion
+  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
   const [isDeleteConfirmationDialogOpen, setIsDeleteConfirmationDialogOpen] = useState(false);
   const [itemTypeToDelete, setItemTypeToDelete] = useState<'expense' | 'itinerary' | 'trip' | null>(null);
-
 
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [isEditExpenseDialogOpen, setIsEditExpenseDialogOpen] = useState(false);
@@ -50,17 +51,31 @@ export default function TripPage() {
   const [itineraryItemToEdit, setItineraryItemToEdit] = useState<ItineraryItem | null>(null);
   const [isEditItineraryItemDialogOpen, setIsEditItineraryItemDialogOpen] = useState(false);
 
-
   const { toast } = useToast();
+  
+  const getLocalStorageKey = () => {
+    if (!user) return null;
+    return `${LOCAL_STORAGE_KEY_PREFIX}${user.uid}`;
+  }
 
   const activeTrip = useMemo(() => {
-    if (!isClient) return undefined; 
+    if (!isClient || !user) return undefined; 
     return appState.trips.find(trip => trip.id === appState.activeTripId);
-  }, [appState.trips, appState.activeTripId, isClient]);
+  }, [appState.trips, appState.activeTripId, isClient, user]);
 
+  // Load data from local storage when user or client status changes
   useEffect(() => {
     setIsClient(true);
-    const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!user || !isClient) { // Don't load if no user or not client-side yet
+        setAppState(INITIAL_APP_STATE); // Reset if user logs out
+        setCurrentUserId('');
+        return;
+    }
+    
+    const localStorageKey = getLocalStorageKey();
+    if (!localStorageKey) return;
+
+    const savedData = localStorage.getItem(localStorageKey);
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData) as AppState;
@@ -101,32 +116,43 @@ export default function TripPage() {
             setCurrentUserId('');
           } else if (!initiallyActiveTrip && parsedData.trips.length > 0) { 
             handleSelectTrip(parsedData.trips[0].id, parsedData.trips[0].members);
-          }
-           else {
+          } else {
             setCurrentUserId('');
           }
         }
       } catch (error) {
         console.error("Failed to parse saved app state:", error);
         toast({ title: "Error loading data", description: "Could not load saved trip data. Starting fresh.", variant: "destructive"});
-        localStorage.removeItem(LOCAL_STORAGE_KEY); 
+        localStorage.removeItem(localStorageKey); 
         setAppState(INITIAL_APP_STATE); 
         setCurrentUserId('');
       }
     } else {
-       if (!activeTrip || activeTrip.members.length === 0) {
+       // No saved data for this user, use initial state
+       setAppState(INITIAL_APP_STATE);
+       setCurrentUserId('');
+       if (!activeTrip || activeTrip?.members.length === 0) {
         setCurrentUserId('');
       }
     }
-  }, [toast]); 
+  }, [toast, user, isClient]); 
 
+  // Save data to local storage when appState changes
   useEffect(() => {
-    if (isClient) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appState));
+    if (isClient && user) {
+      const localStorageKey = getLocalStorageKey();
+      if(localStorageKey) {
+        localStorage.setItem(localStorageKey, JSON.stringify(appState));
+      }
     }
-  }, [appState, isClient]);
+  }, [appState, isClient, user]);
 
   useEffect(() => {
+    if (!user) { // If user logs out, reset the state
+      setAppState(INITIAL_APP_STATE);
+      setCurrentUserId('');
+      return;
+    }
     if (isClient && appState.trips.length > 0 && !appState.activeTripId) {
       const firstTrip = appState.trips[0];
       handleSelectTrip(firstTrip.id, firstTrip.members);
@@ -134,7 +160,7 @@ export default function TripPage() {
       setAppState(prev => ({ ...prev, activeTripId: null }));
       setCurrentUserId('');
     }
-  }, [appState.trips, appState.activeTripId, isClient]);
+  }, [appState.trips, appState.activeTripId, isClient, user]);
 
 
   const updateActiveTrip = (updater: (trip: TripData) => TripData | null) => {
@@ -269,7 +295,7 @@ export default function TripPage() {
         });
         toast({ title: "Trip Deleted", description: `"${tripName}" has been removed.` });
 
-    } else if (activeTrip) { // Expense or Itinerary item (requires an active trip)
+    } else if (activeTrip) {
         if (itemTypeToDelete === 'expense') {
             const expenseDescription = activeTrip.expenses.find(exp => exp.id === itemToDeleteId)?.description || "Expense";
             updateActiveTrip(trip => ({
@@ -317,14 +343,18 @@ export default function TripPage() {
 
   const handleAddExpenseComment = (expenseId: string, authorId: string, text: string) => {
     if (!activeTrip) return;
+    // Use currentUserId (selected member) as author, not necessarily the logged-in Firebase user for now
     const author = activeTrip.members.find(m => m.id === authorId);
-    if (!author) return;
+    if (!author) {
+      toast({title: "Select User", description: "Please select your user profile to comment.", variant: "destructive"});
+      return;
+    }
 
     const newComment: ExpenseComment = {
       id: crypto.randomUUID(),
       expenseId,
       authorId,
-      authorName: author.name,
+      authorName: author.name, // Name from trip member list
       text,
       createdAt: new Date(),
     };
@@ -337,14 +367,17 @@ export default function TripPage() {
   };
 
   const handleSendMessage = (text: string) => {
-    if (!activeTrip || !currentUserId) return;
+    if (!activeTrip || !currentUserId) { // currentUserId is the selected member for this trip
+        toast({title: "Select User", description: "Please select your user profile to send messages.", variant: "destructive"});
+        return;
+    }
     const sender = activeTrip.members.find(m => m.id === currentUserId);
     if (!sender) return;
 
     const newMessage: ChatMessage = {
       id: crypto.randomUUID(),
       senderId: currentUserId,
-      senderName: sender.name,
+      senderName: sender.name, // Name from trip member list
       text,
       createdAt: new Date(),
     };
@@ -361,7 +394,6 @@ export default function TripPage() {
     updateActiveTrip(trip => ({ ...trip, currency: currency }));
   };
 
-  // --- Itinerary Handlers ---
   const handleAddItineraryItem = (itemData: Omit<ItineraryItem, 'id' | 'createdAt' | 'comments'>) => {
     if (!activeTrip) return;
     const newItem: ItineraryItem = {
@@ -393,13 +425,17 @@ export default function TripPage() {
     
   const handleAddItineraryComment = (itineraryItemId: string, authorId: string, text: string) => {
     if (!activeTrip) return;
+    // Use currentUserId (selected member) as author
     const author = activeTrip.members.find(m => m.id === authorId);
-    if (!author) return;
+     if (!author) {
+      toast({title: "Select User", description: "Please select your user profile to comment.", variant: "destructive"});
+      return;
+    }
 
     const newComment: ItineraryComment = {
       id: crypto.randomUUID(),
       authorId,
-      authorName: author.name,
+      authorName: author.name, // Name from trip member list
       text,
       createdAt: new Date(),
     };
@@ -411,7 +447,6 @@ export default function TripPage() {
     }));
   };
 
-  // --- Trip Info Handlers ---
   const handleTripInfoChange = (field: keyof TripData, value: any) => {
     if (!activeTrip) return;
     updateActiveTrip(trip => ({ ...trip, [field]: value }));
@@ -424,12 +459,30 @@ export default function TripPage() {
   }, [activeTrip, isClient]);
 
 
-  if (!isClient) {
+  if (!isClient || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="p-6 rounded-lg shadow-xl bg-card text-card-foreground">
           Loading TripSplit...
         </div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+        <AppHeader />
+        <div className="p-8 rounded-lg shadow-xl bg-card text-card-foreground text-center space-y-4">
+            <h2 className="text-2xl font-semibold">Welcome to TripSplit!</h2>
+            <p className="text-muted-foreground">Please sign in to manage your trips.</p>
+            <Button onClick={signInWithGoogle} size="lg">
+                <LogIn className="mr-2 h-5 w-5" /> Sign In with Google
+            </Button>
+        </div>
+         <footer className="text-center p-4 text-muted-foreground text-sm fixed bottom-0 w-full border-t">
+            TripSplit &copy; {new Date().getFullYear()}
+        </footer>
       </div>
     );
   }
@@ -520,7 +573,7 @@ export default function TripPage() {
         {!activeTrip && appState.trips.length === 0 && (
             <div className="text-center p-10 bg-card rounded-lg shadow">
                 <h2 className="text-xl font-semibold mb-2">Welcome to TripSplit!</h2>
-                <p className="text-muted-foreground mb-4">It looks like you don't have any trips yet.</p>
+                <p className="text-muted-foreground mb-4">It looks like you don't have any trips yet for user: {user.email}.</p>
                 <Button onClick={() => setIsCreateTripDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-5 w-5" /> Create Your First Trip
                 </Button>
@@ -555,14 +608,13 @@ export default function TripPage() {
                 />
             </TabsContent>
 
-
             <TabsContent value="activity">
               {activeTrip.members.length > 0 && (
                 <div className="my-4 max-w-xs">
-                  <Label htmlFor="currentUserActivity" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are:</Label>
+                  <Label htmlFor="currentUserActivity" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are (for actions):</Label>
                   <Select value={currentUserId} onValueChange={setCurrentUserId} disabled={activeTrip.members.length === 0}>
                     <SelectTrigger id="currentUserActivity">
-                      <SelectValue placeholder="Select your user profile" />
+                      <SelectValue placeholder="Select your member profile" />
                     </SelectTrigger>
                     <SelectContent>
                       {activeTrip.members.map((member) => (
@@ -572,6 +624,7 @@ export default function TripPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                   <p className="text-xs text-muted-foreground mt-1">Logged in as: {user.displayName || user.email}</p>
                 </div>
               )}
                {activeTrip.members.length === 0 && (
@@ -588,7 +641,7 @@ export default function TripPage() {
                       expenses={activeTrip.expenses} 
                       members={activeTrip.members} 
                       tripCurrency={activeTrip.currency}
-                      currentUserId={currentUserId}
+                      currentUserId={currentUserId} // This is the selected member for actions
                       onAddComment={handleAddExpenseComment}
                       onDeleteExpense={(expenseId) => handleRequestDeleteItem(expenseId, 'expense')}
                       onEditExpense={handleOpenEditExpenseDialog}
@@ -603,7 +656,7 @@ export default function TripPage() {
                   <Label htmlFor="currentUserItinerary" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are (for comments):</Label>
                    <Select value={currentUserId} onValueChange={setCurrentUserId} disabled={activeTrip.members.length === 0}>
                     <SelectTrigger id="currentUserItinerary">
-                      <SelectValue placeholder="Select your user profile" />
+                      <SelectValue placeholder="Select your member profile" />
                     </SelectTrigger>
                     <SelectContent>
                       {activeTrip.members.map((member) => (
@@ -613,6 +666,7 @@ export default function TripPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Logged in as: {user.displayName || user.email}</p>
                 </div>
               )}
               {activeTrip.members.length === 0 && (
@@ -626,7 +680,7 @@ export default function TripPage() {
               <ItineraryList
                 itineraryItems={activeTrip.itinerary}
                 members={activeTrip.members}
-                currentUserId={currentUserId}
+                currentUserId={currentUserId} // Selected member for comments
                 onEditItem={handleOpenEditItineraryItemDialog}
                 onDeleteItem={(itemId) => handleRequestDeleteItem(itemId, 'itinerary')}
                 onAddComment={handleAddItineraryComment}
@@ -636,10 +690,10 @@ export default function TripPage() {
             <TabsContent value="chat">
               {activeTrip.members.length > 0 && (
                 <div className="my-4 max-w-xs">
-                  <Label htmlFor="currentUserChat" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are:</Label>
+                  <Label htmlFor="currentUserChat" className="flex items-center mb-1"><UserCircle className="mr-2 h-4 w-4" />You are (for chat):</Label>
                    <Select value={currentUserId} onValueChange={setCurrentUserId} disabled={activeTrip.members.length === 0}>
                     <SelectTrigger id="currentUserChat">
-                      <SelectValue placeholder="Select your user profile" />
+                      <SelectValue placeholder="Select your member profile" />
                     </SelectTrigger>
                     <SelectContent>
                       {activeTrip.members.map((member) => (
@@ -649,16 +703,17 @@ export default function TripPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Logged in as: {user.displayName || user.email}</p>
                 </div>
               )}
               {activeTrip.members.length === 0 && !currentUserId &&(
-                  <p className="my-4 text-sm text-muted-foreground">Add members and select your user profile in 'Manage' or 'Activity' tab to chat.</p>
+                  <p className="my-4 text-sm text-muted-foreground">Add members and select your user profile to chat.</p>
                )}
               <div className="h-[600px]"> 
                 <ChatRoom 
                   messages={activeTrip.chatMessages}
                   members={activeTrip.members}
-                  currentUserId={currentUserId}
+                  currentUserId={currentUserId} // Selected member for chat
                   onSendMessage={handleSendMessage}
                 />
               </div>
@@ -715,4 +770,3 @@ export default function TripPage() {
     </div>
   );
 }
-
