@@ -83,12 +83,12 @@ const prepareDataForFirestore = (data: any): any => {
 export default function TripPage() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [appState, setAppState] = useState<AppState>(INITIAL_APP_STATE);
-  const [currentUserId, setCurrentUserId] = useState<string>(''); 
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isClient, setIsClient] = useState(false);
   const [isCreateTripDialogOpen, setIsCreateTripDialogOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
   const [newTripCurrency, setNewTripCurrency] = useState(CURRENCIES[0]);
-  
+
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
   const [isDeleteConfirmationDialogOpen, setIsDeleteConfirmationDialogOpen] = useState(false);
   const [itemTypeToDelete, setItemTypeToDelete] = useState<'expense' | 'itinerary' | 'trip' | null>(null);
@@ -102,20 +102,20 @@ export default function TripPage() {
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
 
   const { toast } = useToast();
-  
+
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   const activeTrip = useMemo(() => {
-    if (!isClient || !user) return undefined; 
+    if (!isClient || !user) return undefined;
     return appState.trips.find(trip => trip.id === appState.activeTripId);
   }, [appState.trips, appState.activeTripId, isClient, user]);
 
   // Load trips from Firestore
   useEffect(() => {
     if (!user || !isClient) {
-      setAppState(INITIAL_APP_STATE); 
+      setAppState(INITIAL_APP_STATE);
       setCurrentUserId('');
       setIsLoadingTrips(false);
       return;
@@ -132,9 +132,9 @@ export default function TripPage() {
         const tripDataWithDates = convertTimestampsToDates(docSnapshot.data()) as Omit<TripData, 'id'>;
         userTrips.push({ id: docSnapshot.id, ...tripDataWithDates });
       });
-      
+
       // Sort trips by lastUpdatedAt descending (most recent first)
-      userTrips.sort((a,b) => (b.lastUpdatedAt?.toDate?.().getTime() || 0) - (a.lastUpdatedAt?.toDate?.().getTime() || 0));
+      userTrips.sort((a,b) => (b.lastUpdatedAt?.valueOf() || 0) - (a.lastUpdatedAt?.valueOf() || 0));
 
 
       setAppState(prev => {
@@ -145,7 +145,7 @@ export default function TripPage() {
         } else if (newActiveTripId && !userTrips.find(t => t.id === newActiveTripId)) {
           newActiveTripId = userTrips.length > 0 ? userTrips[0].id : null;
         }
-        
+
         // If there's an active trip, set currentUserId based on the logged-in user's presence in members
         if (newActiveTripId) {
           const newActiveTrip = userTrips.find(t => t.id === newActiveTripId);
@@ -156,8 +156,6 @@ export default function TripPage() {
                 setCurrentUserId(creatorAsMember.id);
              } else if (newActiveTrip.members.length > 0) {
                 // Fallback: select the first member if logged-in user is not explicitly listed
-                // This might happen if `memberUIDs` grants access but `members` array isn't perfectly synced
-                // or if the user is acting on behalf of someone else conceptually
                 setCurrentUserId(newActiveTrip.members[0].id);
              } else {
                 setCurrentUserId('');
@@ -191,9 +189,7 @@ export default function TripPage() {
       if (userAsMember) {
         setCurrentUserId(userAsMember.id);
       } else if (selectedTrip.members.length > 0) {
-        // Fallback if the logged-in user isn't directly in the members list (e.g. access via memberUIDs)
-        // but for UI actions, we pick the first member. This could be refined.
-        setCurrentUserId(selectedTrip.members[0].id); 
+        setCurrentUserId(selectedTrip.members[0].id);
       } else {
         setCurrentUserId('');
       }
@@ -205,20 +201,19 @@ export default function TripPage() {
       toast({ title: "Trip name required", description: "Please enter a name for your new trip.", variant: "destructive"});
       return;
     }
-    if (!user) { // Should not happen if button is disabled, but good check
+    if (!user) {
         toast({ title: "Authentication Error", description: "You must be logged in to create a trip.", variant: "destructive"});
         return;
     }
 
-    // Create initial trip data, now including the creator's UID
     const initialTripData = createInitialTripData(
-        newTripName.trim(), 
-        newTripCurrency, 
-        user.uid, 
-        user.displayName || user.email || "Trip Creator", // Member name
-        user.email || undefined // Member email
+        newTripName.trim(),
+        newTripCurrency,
+        user.uid,
+        user.displayName || user.email || "Trip Creator",
+        user.email || undefined
     );
-    
+
     const tripDataForFirestore = prepareDataForFirestore(initialTripData);
 
     try {
@@ -227,25 +222,25 @@ export default function TripPage() {
       setNewTripName('');
       setNewTripCurrency(CURRENCIES[0]);
       setIsCreateTripDialogOpen(false);
-      // onSnapshot will update the trips list and potentially set this as active
-      // If we want to force it active:
+      // onSnapshot will update the trips list and set this as active if it's the first/only one
+      // If we want to force it active immediately:
       // handleSelectTrip(docRef.id);
-      // setCurrentUserId(user.uid); // Creator is the current user for this new trip
+      // setCurrentUserId(user.uid);
     } catch (error) {
       console.error("Error creating new trip in Firestore:", error);
       toast({ title: "Error Creating Trip", description: "Could not save the new trip to the database.", variant: "destructive"});
     }
   };
-  
-  const updateActiveTripInFirestore = useCallback(async (updatedTripData: Partial<Omit<TripData, 'id'>>) => {
+
+  const updateActiveTripInFirestore = useCallback(async (updatedTripData: Partial<Omit<TripData, 'id' | 'lastUpdatedAt'>>) => {
     if (!activeTrip || !activeTrip.id) return;
-    
+
     const tripRef = doc(db, "trips", activeTrip.id);
     try {
       // Ensure lastUpdatedAt is always set on update
       const dataToUpdate = prepareDataForFirestore({
         ...updatedTripData,
-        lastUpdatedAt: Timestamp.now() 
+        lastUpdatedAt: Timestamp.now()
       });
       await updateDoc(tripRef, dataToUpdate);
     } catch (error) {
@@ -258,81 +253,73 @@ export default function TripPage() {
   const handleAddMember = async (name: string, email?: string) => {
     if (!activeTrip || !user) return;
     if (activeTrip.members.find(m => m.name.toLowerCase() === name.toLowerCase())) {
-      toast({ title: "Member name exists", description: `A member named "${name}" already exists in this trip.`, variant: "destructive" });
+      toast({ title: "Member name exists", description: `A member named "${name}" already exists in this trip's display list.`, variant: "destructive" });
       return;
     }
     if (email && activeTrip.members.find(m => m.email?.toLowerCase() === email.toLowerCase())) {
-        toast({ title: "Member email exists", description: `A member with email "${email}" already exists in this trip.`, variant: "destructive" });
+        toast({ title: "Member email exists", description: `A member with email "${email}" already exists in this trip's display list.`, variant: "destructive" });
         return;
     }
 
-    // For now, new members added via UI get a client-generated ID.
-    // Their Firebase UID would need to be added to `memberUIDs` separately for actual access.
-    const newMember: Member = { 
-        id: crypto.randomUUID(), // Client-side ID for now
-        name, 
-        email: email || undefined 
+    const newMember: Member = {
+        id: crypto.randomUUID(), // This is a LOCAL ID for the members array, NOT a Firebase UID.
+        name,
+        email: email || undefined
     };
     const updatedMembers = [...activeTrip.members, newMember];
 
-    // To grant this new conceptual member actual Firebase access, their Firebase UID
-    // would need to be added to the `memberUIDs` array. This UI doesn't do that directly.
-    // We could use arrayUnion to add a known Firebase UID if this function was enhanced
-    // e.g., await updateActiveTripInFirestore({ members: updatedMembers, memberUIDs: arrayUnion(knownFirebaseUID) });
-    
     await updateActiveTripInFirestore({ members: updatedMembers });
-    toast({ title: "Member Added", description: `${name} has been added to the member list for "${activeTrip.tripName}". To grant them edit access, their Firebase User ID needs to be added to the trip's shared users (requires manual Firestore edit or a future 'invite' feature).`});
+    toast({
+        title: "Member Added to List",
+        description: `${name} (${email || 'no email'}) added to this trip's member list for display and assignments. To grant this person actual edit access, their Firebase User ID (UID) must be manually added to this trip's 'memberUIDs' array in Firestore. This UI action does not automatically grant them access.`,
+        duration: 10000
+    });
   };
 
   const handleRemoveMember = async (idToRemove: string) => {
     if (!activeTrip || !user) return;
-    
+
     const memberToRemove = activeTrip.members.find(m => m.id === idToRemove);
     if (!memberToRemove) return;
 
-    // Prevent creator from removing themselves if they are the designated creatorUID
+    // Prevent creator from removing themselves if they are the designated creatorUID and sole member on display
+    if (memberToRemove.id === user.uid && activeTrip.creatorUID === user.uid && activeTrip.members.length === 1) {
+        toast({ title: "Cannot remove self", description: "You are the only member and creator. To remove yourself, delete the trip.", variant: "destructive"});
+        return;
+    }
     if (memberToRemove.id === user.uid && activeTrip.creatorUID === user.uid) {
-        if (activeTrip.members.length === 1) {
-            toast({ title: "Cannot remove self", description: "You are the only member and creator. To remove yourself, delete the trip.", variant: "destructive"});
-            return;
-        }
-        toast({ title: "Cannot remove trip creator", description: "The trip creator cannot be removed from the members list this way. Consider transferring ownership or deleting the trip.", variant: "destructive"});
+        toast({ title: "Cannot remove trip creator", description: "The trip creator's primary entry cannot be removed this way. Consider transferring ownership (not yet implemented) or deleting the trip.", variant: "destructive"});
         return;
     }
 
+
     const isPayer = activeTrip.expenses.some(exp => exp.paidById === idToRemove);
-    const isInvolvedInSplit = activeTrip.expenses.some(exp => 
-      (exp.splitDetails || []).some(detail => detail.memberId === idToRemove) || 
+    const isInvolvedInSplit = activeTrip.expenses.some(exp =>
+      (exp.splitDetails || []).some(detail => detail.memberId === idToRemove) ||
       (exp.splitType === 'equally' && (!exp.splitDetails || exp.splitDetails.length === 0) && activeTrip.members.some(m => m.id === idToRemove))
     );
 
     if (isPayer || isInvolvedInSplit) {
-      toast({ title: "Cannot remove member", description: "This member is involved in expenses (paid or part of a split) and cannot be removed.", variant: "destructive"});
+      toast({ title: "Cannot remove member", description: "This member is involved in expenses (paid or part of a split) and cannot be removed from the display list.", variant: "destructive"});
       return;
     }
 
     const updatedMembers = activeTrip.members.filter(member => member.id !== idToRemove);
-    
+
     const updatePayload: Partial<TripData> = { members: updatedMembers };
 
-    // If the removed member's ID was a Firebase UID and present in memberUIDs, remove it.
-    // This assumes member.id could be a Firebase UID for shared users.
+    // If the removed member's display ID *happened* to be a Firebase UID present in memberUIDs,
+    // we might also want to remove it from memberUIDs.
+    // This is more for a scenario where a UID was manually added to 'members' array with that UID as id.
     if (activeTrip.memberUIDs.includes(idToRemove)) {
-      // This line is problematic if idToRemove is a client-generated UUID.
-      // We should only try to remove from memberUIDs if idToRemove is known to be a Firebase UID.
-      // For simplicity, this example doesn't distinguish well yet.
-      // A proper system would manage Member.id vs Firebase UID better.
-      // For now, if removing a member whose 'id' happens to be a UID in memberUIDs:
-      // updatePayload.memberUIDs = arrayRemove(idToRemove) as any; // Firestore SDK expects varargs
-      // Let's assume for now handleRemoveMember is for the visual list.
-      // Actual UID revocation from memberUIDs would be a separate, more explicit "manage access" action.
+       updatePayload.memberUIDs = arrayRemove(idToRemove) as any; // Firestore SDK expects varargs
     }
-    
+
     if (currentUserId === idToRemove) {
       setCurrentUserId(updatedMembers.length > 0 ? (updatedMembers.find(m => m.id === user.uid)?.id || updatedMembers[0].id) : '');
     }
     await updateActiveTripInFirestore(updatePayload);
-    toast({ title: "Member Removed", description: `${memberToRemove.name} has been removed from the member list of "${activeTrip.tripName}". If they had edit access via their Firebase User ID, that access needs to be revoked separately.`});
+    toast({ title: "Member Removed from List", description: `${memberToRemove.name} removed from this trip's member display list. If they had edit access via their Firebase User ID in 'memberUIDs', that access needs to be revoked separately in Firestore if desired.`});
   };
 
   const handleAddExpense = async (expenseData: Omit<Expense, 'id' | 'comments' | 'createdAt'>) => {
@@ -341,27 +328,27 @@ export default function TripPage() {
       ...expenseData,
       id: crypto.randomUUID(),
       comments: [],
-      createdAt: new Date(), 
-      date: expenseData.date as Date, 
+      createdAt: new Date(),
+      date: expenseData.date as Date,
     };
     const updatedExpenses = [...activeTrip.expenses, newExpense];
-    await updateActiveTripInFirestore({ expenses: updatedExpenses }); 
+    await updateActiveTripInFirestore({ expenses: updatedExpenses });
     toast({ title: "Expense Added", description: `${expenseData.description} for ${expenseData.amount} ${activeTrip.currency} added to "${activeTrip.tripName}".`});
   };
-  
+
   const handleRequestDeleteItem = (id: string, type: 'expense' | 'itinerary' | 'trip') => {
     setItemToDeleteId(id);
     setItemTypeToDelete(type);
     setIsDeleteConfirmationDialogOpen(true);
   };
-  
+
   const handleConfirmDelete = async () => {
     if (!itemToDeleteId || !user) return;
 
     if (itemTypeToDelete === 'trip') {
         const tripToDelete = appState.trips.find(t => t.id === itemToDeleteId);
         if (!tripToDelete) return;
-        // Client-side check for creator UID before attempting deletion
+
         if (tripToDelete.creatorUID !== user.uid) {
             toast({ title: "Deletion Forbidden", description: "Only the trip creator can delete this trip.", variant: "destructive"});
             setIsDeleteConfirmationDialogOpen(false);
@@ -370,21 +357,20 @@ export default function TripPage() {
         try {
             await deleteDoc(doc(db, "trips", itemToDeleteId));
             toast({ title: "Trip Deleted", description: `"${tripToDelete.tripName}" has been removed.` });
-            // Active trip will be reset by onSnapshot if it was the one deleted
         } catch (error) {
             console.error("Error deleting trip from Firestore:", error);
             toast({ title: "Error Deleting Trip", description: "Could not delete trip from the database. Check Firestore rules.", variant: "destructive"});
         }
-    } else if (activeTrip) { // For expenses and itinerary items
+    } else if (activeTrip) {
         if (itemTypeToDelete === 'expense') {
             const expenseDescription = activeTrip.expenses.find(exp => exp.id === itemToDeleteId)?.description || "Expense";
             const updatedExpenses = activeTrip.expenses.filter(exp => exp.id !== itemToDeleteId);
-            await updateActiveTripInFirestore({ expenses: updatedExpenses }); 
+            await updateActiveTripInFirestore({ expenses: updatedExpenses });
             toast({ title: "Expense Deleted", description: `"${expenseDescription}" has been removed.` });
         } else if (itemTypeToDelete === 'itinerary') {
             const itemDescription = activeTrip.itinerary.find(item => item.id === itemToDeleteId)?.placeName || "Itinerary item";
             const updatedItinerary = activeTrip.itinerary.filter(item => item.id !== itemToDeleteId);
-            await updateActiveTripInFirestore({ itinerary: updatedItinerary }); 
+            await updateActiveTripInFirestore({ itinerary: updatedItinerary });
             toast({ title: "Itinerary Item Deleted", description: `"${itemDescription}" has been removed.` });
         }
     }
@@ -398,7 +384,7 @@ export default function TripPage() {
     setItemToDeleteId(null);
     setItemTypeToDelete(null);
   };
-  
+
   const handleOpenEditExpenseDialog = (expense: Expense) => {
     setExpenseToEdit(convertTimestampsToDates(expense) as Expense);
     setIsEditExpenseDialogOpen(true);
@@ -406,10 +392,10 @@ export default function TripPage() {
 
   const handleUpdateExpense = async (updatedExpenseData: Expense) => {
     if (!activeTrip) return;
-    const updatedExpenses = activeTrip.expenses.map(exp => 
+    const updatedExpenses = activeTrip.expenses.map(exp =>
         exp.id === updatedExpenseData.id ? updatedExpenseData : exp
     );
-    await updateActiveTripInFirestore({ expenses: updatedExpenses }); 
+    await updateActiveTripInFirestore({ expenses: updatedExpenses });
     toast({ title: "Expense Updated", description: `"${updatedExpenseData.description}" has been updated.` });
     setIsEditExpenseDialogOpen(false);
     setExpenseToEdit(null);
@@ -426,18 +412,18 @@ export default function TripPage() {
       id: crypto.randomUUID(),
       expenseId,
       authorId,
-      authorName: author.name, 
+      authorName: author.name,
       text,
-      createdAt: new Date(), 
+      createdAt: new Date(),
     };
     const updatedExpenses = activeTrip.expenses.map(exp =>
       exp.id === expenseId ? { ...exp, comments: [...exp.comments, newComment] } : exp
     );
-    await updateActiveTripInFirestore({ expenses: updatedExpenses }); 
+    await updateActiveTripInFirestore({ expenses: updatedExpenses });
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!activeTrip || !currentUserId) { 
+    if (!activeTrip || !currentUserId) {
         toast({title: "Select User", description: "Please select your user profile to send messages.", variant: "destructive"});
         return;
     }
@@ -446,12 +432,12 @@ export default function TripPage() {
     const newMessage: ChatMessage = {
       id: crypto.randomUUID(),
       senderId: currentUserId,
-      senderName: sender.name, 
+      senderName: sender.name,
       text,
-      createdAt: new Date(), 
+      createdAt: new Date(),
     };
     const updatedChatMessages = [...activeTrip.chatMessages, newMessage];
-    await updateActiveTripInFirestore({ chatMessages: updatedChatMessages }); 
+    await updateActiveTripInFirestore({ chatMessages: updatedChatMessages });
   };
 
   const handleTripNameChange = async (name: string) => {
@@ -463,21 +449,21 @@ export default function TripPage() {
     if (!activeTrip) return;
     await updateActiveTripInFirestore({ currency: currency });
   };
-  
+
   const handleAddItineraryItem = async (itemData: Omit<ItineraryItem, 'id' | 'createdAt' | 'comments'>) => {
     if (!activeTrip) return;
     const newItem: ItineraryItem = {
       ...itemData,
       id: crypto.randomUUID(),
-      createdAt: new Date(), 
-      visitDate: itemData.visitDate as Date, 
-      comments: [], 
+      createdAt: new Date(),
+      visitDate: itemData.visitDate as Date,
+      comments: [],
     };
-    const updatedItinerary = [...activeTrip.itinerary, newItem].sort((a,b) => 
-      (a.visitDate instanceof Date ? a.visitDate.getTime() : (a.visitDate as Timestamp).toMillis()) - 
+    const updatedItinerary = [...activeTrip.itinerary, newItem].sort((a,b) =>
+      (a.visitDate instanceof Date ? a.visitDate.getTime() : (a.visitDate as Timestamp).toMillis()) -
       (b.visitDate instanceof Date ? b.visitDate.getTime() : (b.visitDate as Timestamp).toMillis())
     );
-    await updateActiveTripInFirestore({ itinerary: updatedItinerary }); 
+    await updateActiveTripInFirestore({ itinerary: updatedItinerary });
     toast({ title: "Itinerary Item Added", description: `"${itemData.placeName}" added to itinerary.` });
     setIsAddItineraryItemDialogOpen(false);
   };
@@ -489,18 +475,18 @@ export default function TripPage() {
 
   const handleUpdateItineraryItem = async (updatedItemData: ItineraryItem) => {
     if (!activeTrip) return;
-    const updatedItinerary = activeTrip.itinerary.map(item => 
+    const updatedItinerary = activeTrip.itinerary.map(item =>
       item.id === updatedItemData.id ? updatedItemData : item
-    ).sort((a,b) => 
-      (a.visitDate instanceof Date ? a.visitDate.getTime() : (a.visitDate as Timestamp).toMillis()) - 
+    ).sort((a,b) =>
+      (a.visitDate instanceof Date ? a.visitDate.getTime() : (a.visitDate as Timestamp).toMillis()) -
       (b.visitDate instanceof Date ? b.visitDate.getTime() : (b.visitDate as Timestamp).toMillis())
     );
-    await updateActiveTripInFirestore({ itinerary: updatedItinerary }); 
+    await updateActiveTripInFirestore({ itinerary: updatedItinerary });
     toast({ title: "Itinerary Item Updated", description: `"${updatedItemData.placeName}" has been updated.` });
     setIsEditItineraryItemDialogOpen(false);
     setItineraryItemToEdit(null);
   };
-    
+
   const handleAddItineraryComment = async (itineraryItemId: string, authorId: string, text: string) => {
     if (!activeTrip) return;
     const author = activeTrip.members.find(m => m.id === authorId);
@@ -511,24 +497,23 @@ export default function TripPage() {
     const newComment: ItineraryComment = {
       id: crypto.randomUUID(),
       authorId,
-      authorName: author.name, 
+      authorName: author.name,
       text,
-      createdAt: new Date(), 
+      createdAt: new Date(),
     };
     const updatedItinerary = activeTrip.itinerary.map(item =>
       item.id === itineraryItemId ? { ...item, comments: [...(item.comments || []), newComment] } : item
     );
-    await updateActiveTripInFirestore({ itinerary: updatedItinerary }); 
+    await updateActiveTripInFirestore({ itinerary: updatedItinerary });
   };
 
   const handleTripInfoChange = async (field: keyof TripData, value: any) => {
     if (!activeTrip) return;
-    await updateActiveTripInFirestore({ [field]: value }); 
+    await updateActiveTripInFirestore({ [field]: value });
   };
 
   const settlements = useMemo(() => {
     if (!isClient || !activeTrip) return [];
-    // Ensure expenses are properly converted for settlement calculation
     const expensesWithJSDates = convertTimestampsToDates(activeTrip.expenses) as Expense[];
     return calculateSettlements(expensesWithJSDates, activeTrip.members);
   }, [activeTrip, isClient]);
@@ -547,7 +532,7 @@ export default function TripPage() {
       </div>
     );
   }
-  
+
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background px-4">
@@ -569,7 +554,7 @@ export default function TripPage() {
       </div>
     );
   }
-  
+
   if (isLoadingTrips) {
      return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
@@ -605,8 +590,8 @@ export default function TripPage() {
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 p-4 bg-card rounded-lg shadow">
             <div className="flex-grow max-w-xs">
                 <Label htmlFor="tripSelector" className="flex items-center mb-1 text-sm font-medium"><Briefcase className="mr-2 h-4 w-4"/> Active Trip</Label>
-                <Select 
-                    value={appState.activeTripId || ''} 
+                <Select
+                    value={appState.activeTripId || ''}
                     onValueChange={(tripId) => handleSelectTrip(tripId)}
                     disabled={appState.trips.length === 0}
                 >
@@ -633,10 +618,10 @@ export default function TripPage() {
                     <div className="space-y-4 py-4">
                         <div>
                             <Label htmlFor="newTripName" className="flex items-center mb-1"><Edit3 className="mr-2 h-4 w-4" />Trip Name</Label>
-                            <Input 
-                                id="newTripName" 
-                                value={newTripName} 
-                                onChange={(e) => setNewTripName(e.target.value)} 
+                            <Input
+                                id="newTripName"
+                                value={newTripName}
+                                onChange={(e) => setNewTripName(e.target.value)}
                                 placeholder="e.g., Summer Vacation '24"
                             />
                         </div>
@@ -681,7 +666,7 @@ export default function TripPage() {
             </div>
         )}
 
-        {activeTrip && user && ( // Ensure user is also defined here
+        {activeTrip && user && (
           <Tabs defaultValue="activity" className="w-full">
             <TabsList className="grid w-full grid-cols-1 sm:grid-cols-5 mb-6">
               <TabsTrigger value="manage" className="flex items-center gap-2"><Settings className="h-4 w-4"/> Manage</TabsTrigger>
@@ -738,12 +723,12 @@ export default function TripPage() {
                   <ExpenseForm members={activeTrip.members} onAddExpense={handleAddExpense} tripCurrency={activeTrip.currency} />
                   <SettlementSummary settlements={settlements} tripCurrency={activeTrip.currency} />
                 </div>
-                <div className="lg:col-span-2 min-h-[600px]"> 
-                   <ExpenseList 
+                <div className="lg:col-span-2 min-h-[600px]">
+                   <ExpenseList
                       expenses={convertTimestampsToDates(activeTrip.expenses) as Expense[]}
-                      members={activeTrip.members} 
+                      members={activeTrip.members}
                       tripCurrency={activeTrip.currency}
-                      currentUserId={currentUserId} 
+                      currentUserId={currentUserId}
                       onAddComment={handleAddExpenseComment}
                       onDeleteExpense={(expenseId) => handleRequestDeleteItem(expenseId, 'expense')}
                       onEditExpense={handleOpenEditExpenseDialog}
@@ -751,7 +736,7 @@ export default function TripPage() {
                 </div>
               </div>
             </TabsContent>
-            
+
             <TabsContent value="itinerary" className="space-y-6">
               {activeTrip.members.length > 0 && (
                 <div className="my-4 max-w-xs">
@@ -782,7 +767,7 @@ export default function TripPage() {
               <ItineraryList
                 itineraryItems={convertTimestampsToDates(activeTrip.itinerary) as ItineraryItem[]}
                 members={activeTrip.members}
-                currentUserId={currentUserId} 
+                currentUserId={currentUserId}
                 onEditItem={handleOpenEditItineraryItemDialog}
                 onDeleteItem={(itemId) => handleRequestDeleteItem(itemId, 'itinerary')}
                 onAddComment={handleAddItineraryComment}
@@ -811,11 +796,11 @@ export default function TripPage() {
               {activeTrip.members.length === 0 && !currentUserId &&(
                   <p className="my-4 text-sm text-muted-foreground">Add members and select your user profile to chat.</p>
                )}
-              <div className="h-[600px]"> 
-                <ChatRoom 
+              <div className="h-[600px]">
+                <ChatRoom
                   messages={convertTimestampsToDates(activeTrip.chatMessages) as ChatMessage[]}
                   members={activeTrip.members}
-                  currentUserId={currentUserId} 
+                  currentUserId={currentUserId}
                   onSendMessage={handleSendMessage}
                 />
               </div>
@@ -837,8 +822,8 @@ export default function TripPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-                onClick={handleConfirmDelete} 
+            <AlertDialogAction
+                onClick={handleConfirmDelete}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 disabled={itemTypeToDelete === 'trip' && user?.uid !== appState.trips.find(t => t.id === itemToDeleteId)?.creatorUID}
             >

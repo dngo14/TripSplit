@@ -22,7 +22,7 @@ export function MemberManager({ members, onAddMember, onRemoveMember }: MemberMa
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
 
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMemberToList = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMemberName.trim()) {
       onAddMember(newMemberName.trim(), newMemberEmail.trim() || undefined);
@@ -35,29 +35,29 @@ export function MemberManager({ members, onAddMember, onRemoveMember }: MemberMa
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center text-xl">
-          <Users className="mr-2 h-6 w-6" /> Trip Members
+          <Users className="mr-2 h-6 w-6" /> Trip Members & Invites
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleAddMember} className="space-y-3 mb-4">
+        <form onSubmit={handleAddMemberToList} className="space-y-3 mb-4">
           <div className="flex gap-2 items-end">
             <div className="flex-grow">
-              <Label htmlFor="newMemberName" className="text-xs mb-1 block">Member Name*</Label>
+              <Label htmlFor="newMemberName" className="text-xs mb-1 block">Member's Display Name*</Label>
               <Input
                 id="newMemberName"
                 type="text"
                 value={newMemberName}
                 onChange={(e) => setNewMemberName(e.target.value)}
-                placeholder="Enter name"
+                placeholder="Enter name for display"
                 required
               />
             </div>
-            <Button type="submit" size="icon" aria-label="Add member" className="shrink-0">
+            <Button type="submit" size="icon" aria-label="Add member to list" className="shrink-0">
               <UserPlus className="h-5 w-5" />
             </Button>
           </div>
           <div>
-            <Label htmlFor="newMemberEmail" className="text-xs mb-1 block">Member Email (Optional, for future sharing)</Label>
+            <Label htmlFor="newMemberEmail" className="text-xs mb-1 block">Member's Email (Optional, for tracking invites)</Label>
             <div className="relative flex items-center">
                 <AtSign className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -66,9 +66,10 @@ export function MemberManager({ members, onAddMember, onRemoveMember }: MemberMa
                     value={newMemberEmail}
                     onChange={(e) => setNewMemberEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="pl-8" 
+                    className="pl-8"
                 />
             </div>
+            <p className="text-xs text-muted-foreground mt-1">Adding here lists them for expense assignment. To grant edit access, their Firebase UID must be added to the trip (manual Firestore step for now).</p>
           </div>
         </form>
         <ScrollArea className="h-[150px] rounded-md border p-2 bg-muted/20">
