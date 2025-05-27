@@ -20,9 +20,9 @@ export function AppHeader({ tripName }: HeaderProps) {
         "container mx-auto flex items-center",
         user ? "justify-between" : "justify-center" // Center content if no user (sign-in page)
       )}>
-        <div className="flex items-center space-x-3"> {/* Reduced space for tighter logo */}
-          <Coins className="h-9 w-9 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight text-primary-foreground/90">TripSplit</h1> {/* Made title more prominent */}
+        <div className="flex items-center space-x-2"> {/* Adjusted space for tighter logo */}
+          <Coins className="h-8 w-8 text-primary-foreground/90" /> {/* Icon color matches text, slightly smaller */}
+          <h1 className="text-3xl font-bold tracking-tight text-primary-foreground/90">TripSplit</h1>
         </div>
         
         {user && (
