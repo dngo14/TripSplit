@@ -7,14 +7,17 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import type { TripData } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { Users, CalendarDays, ArrowRight } from 'lucide-react';
-import type { Timestamp } from 'firebase/firestore';
+// No need to import Timestamp here as trip.lastUpdatedAt should already be a JS Date
 
 interface TripCardProps {
   trip: TripData;
 }
 
 export function TripCard({ trip }: TripCardProps) {
-  const lastUpdatedDate = trip.lastUpdatedAt ? (trip.lastUpdatedAt as Timestamp).toDate() : null;
+  // trip.lastUpdatedAt is expected to be a JS Date or undefined/null
+  // after processing in home/page.tsx.
+  // The original error occurred because .toDate() was called on a JS Date.
+  const lastUpdatedDate = trip.lastUpdatedAt instanceof Date ? trip.lastUpdatedAt : null;
   const memberCount = trip.members?.length || 0;
 
   return (
@@ -49,5 +52,3 @@ export function TripCard({ trip }: TripCardProps) {
     </Link>
   );
 }
-
-    
