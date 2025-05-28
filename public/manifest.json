@@ -1,3 +1,4 @@
+
 {
   "name": "TripSplit",
   "short_name": "TripSplit",
@@ -7,20 +8,18 @@
       "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
-    
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
+  "theme_color": "#398AB9",
+  "background_color": "#17191C",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#17191C",
-  "theme_color": "#398AB9",
-  "scope": "/",
-  "orientation": "portrait-primary"
+  "orientation": "portrait"
 }
