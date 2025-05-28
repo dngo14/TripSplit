@@ -1,7 +1,7 @@
 
 "use client";
 
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 import { Coins, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,10 +19,10 @@ export function AppHeader({ tripName }: HeaderProps) {
     <header className="bg-card text-card-foreground p-4 shadow-md sticky top-0 z-50 w-full border-b border-border/50">
       <div className={cn(
         "container mx-auto flex items-center",
-        user ? "justify-between" : "justify-center" // Center content if no user (sign-in page)
+        user ? "justify-between" : "justify-center" 
       )}>
-        <Link href="/" passHref>
-          <div className="flex items-center space-x-2 cursor-pointer"> {/* Added cursor-pointer for better UX */}
+        <Link href="/home" passHref> {/* Updated href to /home */}
+          <div className="flex items-center space-x-2 cursor-pointer">
             <Coins className="h-8 w-8 text-primary-foreground/90" />
             <h1 className="text-3xl font-bold tracking-tight text-primary-foreground/90">TripSplit</h1>
           </div>
@@ -31,7 +31,7 @@ export function AppHeader({ tripName }: HeaderProps) {
         {user && (
           <div className="flex items-center space-x-4">
             {tripName && <span className="text-lg hidden sm:inline text-muted-foreground">{tripName}</span>}
-            {!tripName && <span className="text-lg italic text-muted-foreground/80 hidden sm:inline">No active trip</span>}
+            {!tripName && user && <span className="text-lg italic text-muted-foreground/80 hidden sm:inline">Homescreen</span>} {/* Show "Homescreen" if user is logged in but no specific tripName */}
             
             {loading && <Skeleton className="h-8 w-24 rounded-md" />}
             {!loading && (
@@ -48,3 +48,5 @@ export function AppHeader({ tripName }: HeaderProps) {
     </header>
   );
 }
+
+    
