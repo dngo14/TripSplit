@@ -152,7 +152,7 @@ export default function TripDetailPage() {
     if (Array.isArray(data)) {
       return data.map(convertTimestampsToDates);
     }
-    if (data && typeof data === 'object' && !(data instanceof Date) && typeof data.toDate !== 'function') {
+    if (data && typeof data === 'object' && !(data instanceof Date) && typeof data.toDate !== 'function' && Object.getPrototypeOf(data) === Object.prototype) {
       const res: { [key: string]: any } = {};
       for (const key in data) {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
@@ -940,3 +940,4 @@ export default function TripDetailPage() {
     </div>
   );
 }
+
