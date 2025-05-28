@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
-import { db, Timestamp, collection, addDoc, query, where, onSnapshot, doc } from '@/lib/firebase';
+import { db, Timestamp, collection, addDoc, query, where, onSnapshot, doc, serverTimestamp } from '@/lib/firebase';
 import type { TripData, Member } from '@/lib/types';
 import { CURRENCIES, createInitialTripData } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,7 @@ import { PlusCircle, Edit3, DollarSign as CurrencyIcon, Loader2, Briefcase, LogI
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
 import { TripCard } from './TripCard';
-import { prepareDataForFirestore } from '@/lib/firestore-utils'; // Assuming we'll move this
+import { prepareDataForFirestore } from '@/lib/firestore-utils';
 
 export default function HomePage() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
@@ -28,6 +28,27 @@ export default function HomePage() {
   const [newTripCurrency, setNewTripCurrency] = useState(CURRENCIES[0]);
   const { toast } = useToast();
   const router = useRouter();
+
+  // Helper function to convert Firestore Timestamps to JS Dates recursively
+  const convertTimestampsToDatesHomePage = (data: any): any => {
+    if (data instanceof Timestamp) {
+      return data.toDate();
+    }
+    if (Array.isArray(data)) {
+      return data.map(convertTimestampsToDatesHomePage);
+    }
+    if (data && typeof data === 'object' && !(data instanceof Date) && typeof data.toDate !== 'function' && Object.getPrototypeOf(data) === Object.prototype) {
+      const res: { [key: string]: any } = {};
+      for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+          res[key] = convertTimestampsToDatesHomePage(data[key]);
+        }
+      }
+      return res;
+    }
+    return data;
+  };
+
 
   useEffect(() => {
     if (!user) {
@@ -44,23 +65,35 @@ export default function HomePage() {
       const userTrips: TripData[] = [];
       querySnapshot.forEach((docSnapshot) => {
         const rawData = docSnapshot.data();
+        
+        // Ensure crucial arrays and optional fields are initialized
         const tripDataWithGuaranteedArrays: Partial<TripData> & {id?:string} = {
-            tripName: rawData.tripName || 'Untitled Trip',
-            currency: rawData.currency || CURRENCIES[0],
-            creatorUID: rawData.creatorUID || '',
-            members: Array.isArray(rawData.members) ? rawData.members.filter(m => m != null) : [],
-            expenses: Array.isArray(rawData.expenses) ? rawData.expenses.filter(e => e != null) : [],
-            itinerary: Array.isArray(rawData.itinerary) ? rawData.itinerary.filter(i => i != null && typeof i === 'object') : [],
-            chatMessages: Array.isArray(rawData.chatMessages) ? rawData.chatMessages.filter(c => c != null) : [],
-            memberUIDs: Array.isArray(rawData.memberUIDs) ? rawData.memberUIDs.filter(uid => uid != null) : [],
-            destinationCity: rawData.destinationCity || '',
-            destinationCountry: rawData.destinationCountry || '',
-            budget: rawData.budget === undefined ? null : rawData.budget,
-            ...rawData,
-          };
-
+          tripName: rawData.tripName || 'Untitled Trip',
+          currency: rawData.currency || CURRENCIES[0],
+          creatorUID: rawData.creatorUID || '',
+          members: Array.isArray(rawData.members) ? rawData.members.filter(m => m != null) : [],
+          expenses: Array.isArray(rawData.expenses) ? rawData.expenses.filter(e => e != null) : [],
+          itinerary: Array.isArray(rawData.itinerary) ? rawData.itinerary.filter(i => i != null && typeof i === 'object') : [],
+          chatMessages: Array.isArray(rawData.chatMessages) ? rawData.chatMessages.filter(c => c != null) : [],
+          memberUIDs: Array.isArray(rawData.memberUIDs) ? rawData.memberUIDs.filter(uid => uid != null) : [],
+          
+          // Optional fields from TripData
+          destinationCity: rawData.destinationCity || '',
+          destinationCountry: rawData.destinationCountry || '',
+          tripStartDate: rawData.tripStartDate === undefined ? null : rawData.tripStartDate,
+          tripEndDate: rawData.tripEndDate === undefined ? null : rawData.tripEndDate,
+          budget: rawData.budget === undefined ? null : rawData.budget,
+          accommodationAddress: rawData.accommodationAddress || '',
+          flightDetails: rawData.flightDetails || '',
+          notes: rawData.notes || '',
+          lastUpdatedAt: rawData.lastUpdatedAt, // Keep as is for now, will be converted
+          ...rawData, // Spread remaining raw data
+        };
+        
+        // Convert all timestamps to dates
         let tripDataWithDates = convertTimestampsToDatesHomePage(tripDataWithGuaranteedArrays) as Omit<TripData, 'id'>;
         
+        // Re-ensure arrays are clean after date conversion, just in case
         tripDataWithDates.members = Array.isArray(tripDataWithDates.members) ? tripDataWithDates.members.filter(m => m != null) : [];
         tripDataWithDates.expenses = Array.isArray(tripDataWithDates.expenses) ? tripDataWithDates.expenses.filter(e => e != null) : [];
         tripDataWithDates.itinerary = Array.isArray(tripDataWithDates.itinerary) ? tripDataWithDates.itinerary.filter(i => i != null && typeof i === 'object') : [];
@@ -73,8 +106,9 @@ export default function HomePage() {
       userTrips.sort((a,b) => {
         const dateAVal = a.lastUpdatedAt;
         const dateBVal = b.lastUpdatedAt;
-        const dateA = dateAVal instanceof Date ? dateAVal.getTime() : (dateAVal as Timestamp)?.toDate?.().getTime() || 0;
-        const dateB = dateBVal instanceof Date ? dateBVal.getTime() : (dateBVal as Timestamp)?.toDate?.().getTime() || 0;
+        // Ensure a and b are valid dates before getTime()
+        const dateA = dateAVal instanceof Date && isValid(dateAVal) ? dateAVal.getTime() : 0;
+        const dateB = dateBVal instanceof Date && isValid(dateBVal) ? dateBVal.getTime() : 0;
         return (dateB || 0) - (dateA || 0); 
       });
 
@@ -103,8 +137,8 @@ export default function HomePage() {
         newTripName.trim(),
         newTripCurrency,
         user.uid, 
-        user.displayName,
-        user.email 
+        user.displayName || undefined,
+        user.email || undefined 
     );
 
     const tripDataForFirestore = prepareDataForFirestore(initialTripData);
@@ -115,31 +149,11 @@ export default function HomePage() {
       setNewTripName('');
       setNewTripCurrency(CURRENCIES[0]);
       setIsCreateTripDialogOpen(false);
-      router.push(`/trip/${docRef.id}`); // Navigate to the new trip's page
+      router.push(`/trip/${docRef.id}`); 
     } catch (error) {
       console.error("Error creating new trip in Firestore:", error);
       toast({ title: "Error Creating Trip", description: "Could not save the new trip.", variant: "destructive"});
     }
-  };
-
-  // Helper function for this page, similar to the one in main page
-  const convertTimestampsToDatesHomePage = (data: any): any => {
-    if (data instanceof Timestamp) {
-      return data.toDate();
-    }
-    if (Array.isArray(data)) {
-      return data.map(convertTimestampsToDatesHomePage);
-    }
-    if (data && typeof data === 'object' && !(data instanceof Date) && typeof data.toDate !== 'function') {
-      const res: { [key: string]: any } = {};
-      for (const key in data) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-          res[key] = convertTimestampsToDatesHomePage(data[key]);
-        }
-      }
-      return res;
-    }
-    return data;
   };
 
 
@@ -181,7 +195,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-secondary/30 text-foreground">
-      <AppHeader /> {/* No tripName passed for home page */}
+      <AppHeader /> 
       <main className="flex-grow container mx-auto p-4 md:p-6 space-y-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-semibold flex items-center">
@@ -260,5 +274,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
