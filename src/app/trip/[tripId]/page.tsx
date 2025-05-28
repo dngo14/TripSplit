@@ -39,7 +39,7 @@ import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutLis
 import { prepareDataForFirestore } from '@/lib/firestore-utils';
 
 const EXPENSES_PER_PAGE = 5;
-const ITINERARY_ITEMS_PER_PAGE = 5;
+const ITINERARY_ITEMS_PER_PAGE = 6; // Updated to 6
 
 export default function TripDetailPage() {
   const { user, loading: authLoading } = useAuth();
@@ -601,6 +601,7 @@ export default function TripDetailPage() {
   };
   
   const handleOpenPaymentLog = useCallback(() => {
+    console.log('handleOpenPaymentLog called in page.tsx, setting isPaymentLogDialogOpen to true');
     setIsSettlementLogDialogOpen(true);
   }, []);
 
@@ -700,6 +701,11 @@ export default function TripDetailPage() {
     setCurrentItineraryPage(1);
     setSelectedItineraryCategoryFilter("All");
   }, [activeTrip?.id]);
+
+  // Log isPaymentLogDialogOpen changes for debugging
+  useEffect(() => {
+    console.log("isPaymentLogDialogOpen changed to:", isSettlementLogDialogOpen);
+  }, [isSettlementLogDialogOpen]);
 
 
   if (authLoading || (!user && !authLoading) || (isLoadingTrip && tripId)) {
@@ -923,4 +929,3 @@ export default function TripDetailPage() {
     </div>
   );
 }
-
