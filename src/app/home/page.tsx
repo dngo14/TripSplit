@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
 import { TripCard } from './TripCard';
 import { prepareDataForFirestore } from '@/lib/firestore-utils';
+import { isValid } from 'date-fns'; // Added import for isValid
 
 export default function HomePage() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
