@@ -1,6 +1,7 @@
 
 "use client";
 
+import Link from 'next/link'; // Import Link
 import { Coins, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,10 +21,12 @@ export function AppHeader({ tripName }: HeaderProps) {
         "container mx-auto flex items-center",
         user ? "justify-between" : "justify-center" // Center content if no user (sign-in page)
       )}>
-        <div className="flex items-center space-x-2"> {/* Adjusted space for tighter logo */}
-          <Coins className="h-8 w-8 text-primary-foreground/90" /> {/* Icon color matches text, slightly smaller */}
-          <h1 className="text-3xl font-bold tracking-tight text-primary-foreground/90">TripSplit</h1>
-        </div>
+        <Link href="/" passHref>
+          <div className="flex items-center space-x-2 cursor-pointer"> {/* Added cursor-pointer for better UX */}
+            <Coins className="h-8 w-8 text-primary-foreground/90" />
+            <h1 className="text-3xl font-bold tracking-tight text-primary-foreground/90">TripSplit</h1>
+          </div>
+        </Link>
         
         {user && (
           <div className="flex items-center space-x-4">
