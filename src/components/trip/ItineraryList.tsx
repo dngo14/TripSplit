@@ -2,7 +2,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { ItineraryItemCard } from './ItineraryItemCard';
 import type { ItineraryItem } from '@/lib/types';
 import { MapPin, CalendarSearch, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
@@ -63,8 +62,7 @@ export function ItineraryList({
             )}
         </div>
       </CardHeader>
-      <CardContent className="flex-grow overflow-hidden p-4">
-        <ScrollArea className="h-full pr-3">
+      <CardContent className="flex-grow p-4"> {/* Removed overflow-hidden and internal ScrollArea */}
           {displayedItems.length === 0 && currentPage === 1 && selectedCategory === "All" ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-10">
               <CalendarSearch className="h-16 w-16 text-muted-foreground mb-4" />
@@ -92,7 +90,6 @@ export function ItineraryList({
               ))}
             </div>
           )}
-        </ScrollArea>
       </CardContent>
       {totalPages > 1 && (
         <CardFooter className="border-t pt-4 flex justify-center items-center gap-3">

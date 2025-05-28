@@ -91,7 +91,6 @@ export default function TripDetailPage() {
       if (docSnapshot.exists()) {
         const rawData = docSnapshot.data() as Omit<TripData, 'id'>;
         
-        // Ensure arrays are initialized
         const guaranteedData: Partial<TripData> = {
             tripName: rawData.tripName || 'Untitled Trip',
             currency: rawData.currency || CURRENCIES[0],
@@ -107,7 +106,6 @@ export default function TripDetailPage() {
 
         let tripDataWithDates = convertTimestampsToDates(guaranteedData) as Omit<TripData, 'id'>;
         
-        // Further ensure nested arrays are clean after date conversion
         tripDataWithDates.members = (tripDataWithDates.members || []).filter(m => m != null);
         tripDataWithDates.expenses = (tripDataWithDates.expenses || []).map(exp => ({
           ...exp,
@@ -180,8 +178,6 @@ export default function TripDetailPage() {
       const dataToUpdateWithTimestamp = { ...updatedTripData, lastUpdatedAt: Timestamp.now() };
       const finalDataToUpdate = prepareDataForFirestore(dataToUpdateWithTimestamp);
       await updateDoc(tripRef, finalDataToUpdate);
-      // Toast is now more generic, specific toasts handled in calling functions
-      // toast({ title: "Trip Updated", description: "Changes saved successfully." });
     } catch (error: any) {
       console.error("Error updating trip in Firestore:", error, "Data attempted:", updatedTripData);
       toast({ title: "Update Failed", description: `Could not save changes to Firestore: ${error.message || 'Unknown error'}.`, variant: "destructive" });
@@ -230,7 +226,6 @@ export default function TripDetailPage() {
                     
                     const localMemberIndex = activeTrip.members.findIndex(m => m.id === existingUserUID);
                     if (localMemberIndex !== -1) {
-                        // Member is in local display list, potentially update their details if they differ
                         const localMember = activeTrip.members[localMemberIndex];
                         if (localMember.name !== (existingUserData.displayName || name.trim()) || localMember.email !== existingUserData.email.toLowerCase()) {
                             const updatedMembers = [...activeTrip.members];
@@ -238,20 +233,19 @@ export default function TripDetailPage() {
                             updatePayload.members = updatedMembers;
                         }
                     } else {
-                        // Member has UID access but not in local display list, add them
                         memberToAdd = { id: existingUserUID, name: existingUserData.displayName || name.trim(), email: existingUserData.email.toLowerCase() };
                         updatePayload.members = arrayUnion(prepareDataForFirestore(memberToAdd));
                     }
-                } else { // User is registered but not yet a member of this trip
+                } else { 
                     memberToAdd = { id: existingUserUID, name: existingUserData.displayName || name.trim(), email: existingUserData.email.toLowerCase() };
-                    updatePayload.memberUIDs = arrayUnion(existingUserUID); // Grant access
-                    updatePayload.members = arrayUnion(prepareDataForFirestore(memberToAdd)); // Add to display
+                    updatePayload.memberUIDs = arrayUnion(existingUserUID); 
+                    updatePayload.members = arrayUnion(prepareDataForFirestore(memberToAdd)); 
                     toastTitle = "Member Invited & Access Granted";
                     toastDescription = `${memberToAdd.name} (email: ${lowercasedEmail}) has been invited. They can now see and edit this trip when they log in.`;
                 }
-            } else { // Email not found in registered users
+            } else { 
                  memberToAdd = { id: crypto.randomUUID(), name: name.trim(), email: lowercasedEmail };
-                 updatePayload.members = arrayUnion(prepareDataForFirestore(memberToAdd)); // Add to display only
+                 updatePayload.members = arrayUnion(prepareDataForFirestore(memberToAdd)); 
                  toastTitle = "Member Added to Roster (Registration Needed for Full Access)";
                  toastDescription = `${name.trim()} (${lowercasedEmail}) added to roster. If they register with this email, add them again to grant trip access.`;
             }
@@ -260,7 +254,7 @@ export default function TripDetailPage() {
             toast({ title: "Error Adding Member", description: "Could not verify user email.", variant: "destructive" });
             return;
         }
-    } else { // No email provided
+    } else { 
         memberToAdd = { id: crypto.randomUUID(), name: name.trim(), email: undefined };
         updatePayload.members = arrayUnion(prepareDataForFirestore(memberToAdd));
     }
@@ -294,11 +288,10 @@ export default function TripDetailPage() {
       return;
     }
     
-    // Prepare object to remove based on its current state in Firestore
     const preparedMemberToRemove = prepareDataForFirestore(memberToRemove);
     let updatePayload: Partial<TripData> = { members: arrayRemove(preparedMemberToRemove) as any };
 
-    if (activeTrip.memberUIDs.includes(idToRemove)) { // If the ID was a UID (meaning they had access)
+    if (activeTrip.memberUIDs.includes(idToRemove)) { 
         updatePayload.memberUIDs = arrayRemove(idToRemove) as any;
     }
     
@@ -316,8 +309,8 @@ export default function TripDetailPage() {
     const preparedNewExpense = prepareDataForFirestore(newExpense);
     await updateActiveTripInFirestore({ expenses: arrayUnion(preparedNewExpense) as any });
     toast({ title: "Expense Added", description: `"${newExpense.description}" added.` });
-    setIsAddExpenseDialogOpen(false); // Close dialog after adding
-    setCurrentExpensesPage(1); // Go to first page of expenses
+    setIsAddExpenseDialogOpen(false); 
+    setCurrentExpensesPage(1); 
   };
 
   const handleRequestDeleteItem = (id: string, type: 'expense' | 'itinerary' | 'trip') => {
@@ -406,7 +399,7 @@ export default function TripDetailPage() {
 
     const authorMember = activeTrip.members.find(m => m.id === user.uid);
     let authorName = user.displayName || user.email?.split('@')[0] || "User";
-    if (authorMember && authorMember.name) { // Prefer name from trip's member list if available
+    if (authorMember && authorMember.name) { 
         authorName = authorMember.name;
     }
 
@@ -419,17 +412,7 @@ export default function TripDetailPage() {
       text,
       createdAt: Timestamp.now(),
     };
-    const updatedExpenses = activeTrip.expenses.map((exp, index) => 
-      index === expenseIndex 
-        ? { ...exp, comments: arrayUnion(prepareDataForFirestore(newComment)) as any } // Use arrayUnion
-        : exp
-    );
     
-    // Need to be careful here. If updating a nested array with arrayUnion,
-    // it's usually better to update the specific document field for that expense if expenses were subcollections.
-    // Since expenses is an array on the trip doc, we update the whole expenses array.
-    // Let's try ensuring the comment array is correctly prepared.
-
     const expenseToUpdate = { ...activeTrip.expenses[expenseIndex] };
     expenseToUpdate.comments = [...(expenseToUpdate.comments || []), newComment];
     
@@ -481,7 +464,7 @@ export default function TripDetailPage() {
     const messageIndex = activeTrip.chatMessages.findIndex(msg => msg.id === messageId && msg.poll?.id === pollId);
     if (messageIndex === -1 || !activeTrip.chatMessages[messageIndex].poll) return;
 
-    const pollToUpdate = { ...activeTrip.chatMessages[messageIndex].poll! }; // Create a shallow copy
+    const pollToUpdate = { ...activeTrip.chatMessages[messageIndex].poll! }; 
 
     if (pollToUpdate.voters[user.uid]) {
         toast({title: "Already Voted", description: "You have already voted in this poll.", variant: "destructive"});
@@ -495,7 +478,7 @@ export default function TripDetailPage() {
 
     const updatedPollData: PollData = { ...pollToUpdate, options: updatedOptions, voters: updatedVoters };
     
-    const updatedChatMessages = [...activeTrip.chatMessages]; // Create a shallow copy of messages array
+    const updatedChatMessages = [...activeTrip.chatMessages]; 
     updatedChatMessages[messageIndex] = { ...updatedChatMessages[messageIndex], poll: updatedPollData };
     
     await updateActiveTripInFirestore({ chatMessages: updatedChatMessages });
@@ -575,7 +558,7 @@ export default function TripDetailPage() {
     };
 
     const itemToUpdate = { ...activeTrip.itinerary[itemIndex] };
-    itemToUpdate.comments = [...(itemToUpdate.comments || []), newComment]; // Add to local copy
+    itemToUpdate.comments = [...(itemToUpdate.comments || []), newComment]; 
 
     const finalItineraryArray = activeTrip.itinerary.map((item, index) =>
       index === itemIndex ? itemToUpdate : item
@@ -681,7 +664,7 @@ export default function TripDetailPage() {
   useEffect(() => {
     if (currentItineraryPage > totalItineraryPages && totalItineraryPages > 0) {
       setCurrentItineraryPage(totalItineraryPages);
-    } else if (currentItineraryPage === 0 && totalItineraryPages > 0) { // Also handle if page somehow becomes 0
+    } else if (currentItineraryPage === 0 && totalItineraryPages > 0) { 
       setCurrentItineraryPage(1);
     }
   }, [currentItineraryPage, totalItineraryPages]);
@@ -707,7 +690,7 @@ export default function TripDetailPage() {
   useEffect(() => {
       if (currentExpensesPage > totalExpensePages && totalExpensePages > 0) {
           setCurrentExpensesPage(totalExpensePages);
-      } else if (currentExpensesPage <= 0 && totalExpensePages > 0) { // Check for <=0
+      } else if (currentExpensesPage <= 0 && totalExpensePages > 0) { 
           setCurrentExpensesPage(1);
       }
   }, [currentExpensesPage, totalExpensePages]);
@@ -762,7 +745,7 @@ export default function TripDetailPage() {
       <main className="flex-grow container mx-auto p-4 md:p-6">
         <Tabs defaultValue="activity" className="w-full">
           <div className="flex justify-center mb-6">
-            <ScrollArea orientation="horizontal" className="w-full whitespace-nowrap pb-2.5">
+            <ScrollArea orientation="horizontal" className="pb-2.5">
               <TabsList className="inline-flex">
                 <TabsTrigger value="manage"><Users className="mr-2" />Manage</TabsTrigger>
                 <TabsTrigger value="info"><InfoIcon className="mr-2" />Trip Info</TabsTrigger>
