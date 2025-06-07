@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertTitleComponent, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Card, CardHeader, CardTitle as ChartCardTitle, CardDescription as ChartCardDescription, CardContent as ChartCardContent } from '@/components/ui/card';
+
 
 import { TripSettings } from '@/components/trip/TripSettings';
 import { MemberManager } from '@/components/trip/MemberManager';
@@ -32,10 +34,14 @@ import { ItineraryList } from '@/components/trip/ItineraryList';
 import { TripInfo } from '@/components/trip/TripInfo';
 import { AiTripIdeation } from '@/components/trip/AiTripIdeation';
 import { SettlementLogDialog } from '@/components/trip/SettlementLogDialog';
+import { SpendingOverTimeChart } from '@/components/trip/charts/SpendingOverTimeChart';
+import { SpendingByMemberChart } from '@/components/trip/charts/SpendingByMemberChart';
+import { SpendingByCategoryChart } from '@/components/trip/charts/SpendingByCategoryChart';
+
 
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutList, MessageSquare, InfoIcon, Wand2, CalendarCheck } from 'lucide-react';
+import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutList, MessageSquare, InfoIcon, Wand2, CalendarCheck, PiggyBank } from 'lucide-react';
 import { prepareDataForFirestore } from '@/lib/firestore-utils';
 
 const EXPENSES_PER_PAGE = 5;
@@ -102,7 +108,6 @@ export default function TripDetailPage() {
             chatMessages: Array.isArray(rawData.chatMessages) ? rawData.chatMessages.filter(c => c != null) : [],
             memberUIDs: Array.isArray(rawData.memberUIDs) ? rawData.memberUIDs.filter(uid => uid != null) : [],
             settlementClearances: Array.isArray(rawData.settlementClearances) ? rawData.settlementClearances.filter(sc => sc != null) : [],
-            currentSettlementsLastClearedAt: rawData.currentSettlementsLastClearedAt === undefined ? null : rawData.currentSettlementsLastClearedAt,
         };
 
         let tripDataWithDates = convertTimestampsToDates(guaranteedData) as Omit<TripData, 'id'>;
@@ -110,14 +115,27 @@ export default function TripDetailPage() {
         tripDataWithDates.members = (tripDataWithDates.members || []).filter(m => m != null);
         tripDataWithDates.expenses = (tripDataWithDates.expenses || []).map(exp => ({
           ...exp,
+          date: exp.date, // ensure date is preserved
+          createdAt: exp.createdAt, // ensure createdAt is preserved
           comments: (exp.comments || []).filter(c => c != null)
         })).filter(e => e != null);
         tripDataWithDates.itinerary = (tripDataWithDates.itinerary || []).map(item => ({
           ...item,
+          visitDate: item.visitDate, // ensure visitDate is preserved
+          createdAt: item.createdAt, // ensure createdAt is preserved
           comments: (item.comments || []).filter(c => c != null)
         })).filter(i => i != null && typeof i === 'object');
         tripDataWithDates.chatMessages = (tripDataWithDates.chatMessages || []).filter(c => c != null);
-        tripDataWithDates.settlementClearances = (tripDataWithDates.settlementClearances || []).filter(sc => sc != null);
+        
+        tripDataWithDates.settlementClearances = (tripDataWithDates.settlementClearances || []).map(sc => ({
+            ...sc,
+            clearedAt: sc.clearedAt // ensure clearedAt is preserved
+        })).filter(sc => sc != null);
+
+        if(tripDataWithDates.currentSettlementsLastClearedAt) {
+            // This field is directly a Timestamp or null, so convertTimestampsToDates handles it.
+        }
+
 
         if (!tripDataWithDates.memberUIDs.includes(user.uid)) {
           toast({ title: "Access Denied", description: "You are not a member of this trip.", variant: "destructive"});
@@ -151,6 +169,7 @@ export default function TripDetailPage() {
     if (Array.isArray(data)) {
       return data.map(convertTimestampsToDates);
     }
+    // Check if it's a plain object (and not a Date or other special object)
     if (data && typeof data === 'object' && !(data instanceof Date) && typeof (data as any).toDate !== 'function' && Object.getPrototypeOf(data) === Object.prototype) {
       const res: { [key: string]: any } = {};
       for (const key in data) {
@@ -580,22 +599,38 @@ export default function TripDetailPage() {
     updateActiveTripInFirestore({ currency });
   };
 
-   const handleClearSettlements = async () => {
-    if (!activeTrip || !user || settlements.length === 0) return;
+   const handleRecordPayment = async (settlement: Settlement) => {
+    if (!activeTrip || !user) return;
 
-    const clearance: SettlementClearance = {
-      id: crypto.randomUUID(),
-      clearedAt: Timestamp.now(),
-      clearedByUserId: user.uid,
-      clearedByName: activeTrip.members.find(m => m.id === user.uid)?.name || user.displayName || "Unknown User",
-      settlements: settlements, 
+    // Find the actual member objects for payer and recipient
+    const payer = activeTrip.members.find(m => m.id === settlement.fromId);
+    const recipient = activeTrip.members.find(m => m.id === settlement.toId);
+
+    if (!payer || !recipient) {
+        toast({ title: "Error", description: "Payer or recipient not found in trip members.", variant: "destructive"});
+        return;
+    }
+
+    const paymentExpense: Omit<Expense, 'id' | 'comments' | 'createdAt'> = {
+      description: `Settlement: ${payer.name} to ${recipient.name}`,
+      amount: settlement.amount,
+      paidById: settlement.fromId, // The person who owes is "paying"
+      category: 'Settlement Payment', 
+      date: Timestamp.now(), 
+      splitType: 'byAmount', // The recipient "receives" the full amount
+      splitDetails: [{ memberId: settlement.toId, amount: settlement.amount }],
     };
-    const preparedClearance = prepareDataForFirestore(clearance);
-    await updateActiveTripInFirestore({
-        settlementClearances: arrayUnion(preparedClearance) as any,
-        currentSettlementsLastClearedAt: Timestamp.now()
-    });
-    toast({title: "Settlements Cleared", description: "Current debts have been logged and cleared from the summary."});
+    
+    const newExpenseWithTimestamp: Omit<Expense, 'id'> = {
+      ...paymentExpense,
+      comments: [],
+      createdAt: Timestamp.now(), 
+    };
+
+    const preparedNewExpense = prepareDataForFirestore(newExpenseWithTimestamp);
+    await updateActiveTripInFirestore({ expenses: arrayUnion(preparedNewExpense) as any });
+    
+    toast({ title: "Payment Recorded", description: `Payment from ${payer.name} to ${recipient.name} of ${settlement.amount.toFixed(2)} ${activeTrip.currency} recorded as an expense.` });
   };
   
   const handleOpenPaymentLog = useCallback(() => {
@@ -615,18 +650,9 @@ export default function TripDetailPage() {
 
   const settlements = useMemo(() => {
     if (!activeTrip) return [];
-    const relevantExpenses = activeTrip.currentSettlementsLastClearedAt 
-      ? activeTrip.expenses.filter(exp => {
-          const expenseDateVal = exp.createdAt;
-          const clearanceDateVal = activeTrip.currentSettlementsLastClearedAt;
-          
-          const expenseDate = expenseDateVal instanceof Date ? expenseDateVal : (expenseDateVal as Timestamp)?.toDate?.();
-          const clearanceDate = clearanceDateVal instanceof Date ? clearanceDateVal : (clearanceDateVal as Timestamp)?.toDate?.();
-
-          return expenseDate && clearanceDate ? expenseDate > clearanceDate : true; // if dates are invalid, include for safety
-        })
-      : activeTrip.expenses;
-    return calculateSettlements(relevantExpenses, activeTrip.members);
+    // Filter out "Settlement Payment" expenses before calculating outstanding settlements
+    const nonSettlementExpenses = activeTrip.expenses.filter(exp => exp.category !== "Settlement Payment");
+    return calculateSettlements(nonSettlementExpenses, activeTrip.members);
   }, [activeTrip]);
 
   const allItineraryCategories = useMemo(() => {
@@ -756,6 +782,7 @@ export default function TripDetailPage() {
                 <TabsTrigger value="info"><InfoIcon className="mr-2" />Trip Info</TabsTrigger>
                 <TabsTrigger value="activity"><LayoutList className="mr-2" />Activity</TabsTrigger>
                 <TabsTrigger value="itinerary"><CalendarCheck className="mr-2" />Itinerary</TabsTrigger>
+                <TabsTrigger value="budget"><PiggyBank className="mr-2" />Budget</TabsTrigger>
                 <TabsTrigger value="ai-plan"><Wand2 className="mr-2" />Plan with AI</TabsTrigger>
                 <TabsTrigger value="chat"><MessageSquare className="mr-2" />Trip Chat</TabsTrigger>
               </TabsList>
@@ -811,7 +838,7 @@ export default function TripDetailPage() {
                 <SettlementSummary
                   settlements={settlements}
                   tripCurrency={activeTrip.currency}
-                  onClearSettlements={handleClearSettlements}
+                  onRecordPayment={handleRecordPayment}
                   onViewPaymentLog={handleOpenPaymentLog}
                   members={activeTrip.members}
                 />
@@ -852,6 +879,53 @@ export default function TripDetailPage() {
                 onCategoryChange={handleItineraryCategoryFilterChange}
               />
             </div>
+          </TabsContent>
+
+          <TabsContent value="budget" className="space-y-6">
+            {activeTrip && activeTrip.expenses && activeTrip.expenses.length > 0 ? (
+              <>
+                <ChartCard>
+                  <ChartCardHeader>
+                    <ChartCardTitle>Spending Over Time</ChartCardTitle>
+                    <ChartCardDescription>Total amount spent per day during the trip.</ChartCardDescription>
+                  </ChartCardHeader>
+                  <ChartCardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
+                    <SpendingOverTimeChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
+                  </ChartCardContent>
+                </ChartCard>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <ChartCard>
+                    <ChartCardHeader>
+                      <ChartCardTitle>Spending by Member</ChartCardTitle>
+                      <ChartCardDescription>Total amount paid by each trip member.</ChartCardDescription>
+                    </ChartCardHeader>
+                    <ChartCardContent className="h-[300px] sm:h-[350px]">
+                      <SpendingByMemberChart expenses={activeTrip.expenses} members={activeTrip.members} tripCurrency={activeTrip.currency} />
+                    </ChartCardContent>
+                  </ChartCard>
+
+                  <ChartCard>
+                    <ChartCardHeader>
+                      <ChartCardTitle>Spending by Category</ChartCardTitle>
+                      <ChartCardDescription>Total spending broken down by expense category.</ChartCardDescription>
+                    </ChartCardHeader>
+                    <ChartCardContent className="h-[300px] sm:h-[350px]">
+                      <SpendingByCategoryChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
+                    </ChartCardContent>
+                  </ChartCard>
+                </div>
+              </>
+            ) : (
+              <ChartCard>
+                <ChartCardHeader>
+                  <ChartCardTitle>Budget Dashboard</ChartCardTitle>
+                </ChartCardHeader>
+                <ChartCardContent>
+                  <p className="text-muted-foreground">No expenses logged yet to display budget charts.</p>
+                </ChartCardContent>
+              </ChartCard>
+            )}
           </TabsContent>
 
           <TabsContent value="ai-plan">
@@ -921,7 +995,7 @@ export default function TripDetailPage() {
        <SettlementLogDialog
           isOpen={isSettlementLogDialogOpen}
           onOpenChange={setIsSettlementLogDialogOpen}
-          settlementClearances={activeTrip.settlementClearances || []} 
+          expenses={activeTrip.expenses || []} 
           tripCurrency={activeTrip.currency}
           members={activeTrip.members}
         />
@@ -929,5 +1003,7 @@ export default function TripDetailPage() {
   );
 }
 
+
+    
 
     
