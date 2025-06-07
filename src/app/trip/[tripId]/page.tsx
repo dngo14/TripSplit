@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertTitleComponent, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Card, CardHeader, CardTitle as ChartCardTitle, CardDescription as ChartCardDescription, CardContent as ChartCardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 
 import { TripSettings } from '@/components/trip/TripSettings';
@@ -884,47 +884,47 @@ export default function TripDetailPage() {
           <TabsContent value="budget" className="space-y-6">
             {activeTrip && activeTrip.expenses && activeTrip.expenses.length > 0 ? (
               <>
-                <ChartCard>
-                  <ChartCardHeader>
-                    <ChartCardTitle>Spending Over Time</ChartCardTitle>
-                    <ChartCardDescription>Total amount spent per day during the trip.</ChartCardDescription>
-                  </ChartCardHeader>
-                  <ChartCardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Spending Over Time</CardTitle>
+                    <CardDescription>Total amount spent per day during the trip.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
                     <SpendingOverTimeChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
-                  </ChartCardContent>
-                </ChartCard>
+                  </CardContent>
+                </Card>
 
                 <div className="grid md:grid-cols-2 gap-6">
-                  <ChartCard>
-                    <ChartCardHeader>
-                      <ChartCardTitle>Spending by Member</ChartCardTitle>
-                      <ChartCardDescription>Total amount paid by each trip member.</ChartCardDescription>
-                    </ChartCardHeader>
-                    <ChartCardContent className="h-[300px] sm:h-[350px]">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Spending by Member</CardTitle>
+                      <CardDescription>Total amount paid by each trip member.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px] sm:h-[350px]">
                       <SpendingByMemberChart expenses={activeTrip.expenses} members={activeTrip.members} tripCurrency={activeTrip.currency} />
-                    </ChartCardContent>
-                  </ChartCard>
+                    </CardContent>
+                  </Card>
 
-                  <ChartCard>
-                    <ChartCardHeader>
-                      <ChartCardTitle>Spending by Category</ChartCardTitle>
-                      <ChartCardDescription>Total spending broken down by expense category.</ChartCardDescription>
-                    </ChartCardHeader>
-                    <ChartCardContent className="h-[300px] sm:h-[350px]">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Spending by Category</CardTitle>
+                      <CardDescription>Total spending broken down by expense category.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px] sm:h-[350px]">
                       <SpendingByCategoryChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
-                    </ChartCardContent>
-                  </ChartCard>
+                    </CardContent>
+                  </Card>
                 </div>
               </>
             ) : (
-              <ChartCard>
-                <ChartCardHeader>
-                  <ChartCardTitle>Budget Dashboard</ChartCardTitle>
-                </ChartCardHeader>
-                <ChartCardContent>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Budget Dashboard</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <p className="text-muted-foreground">No expenses logged yet to display budget charts.</p>
-                </ChartCardContent>
-              </ChartCard>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
