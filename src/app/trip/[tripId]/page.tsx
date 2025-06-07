@@ -900,7 +900,7 @@ export default function TripDetailPage() {
                       <CardTitle>Spending by Member</CardTitle>
                       <CardDescription>Total amount paid by each trip member.</CardDescription>
                     </CardHeader>
-                    <CardContent className="h-[300px] sm:h-[350px]">
+                    <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
                       <SpendingByMemberChart expenses={activeTrip.expenses} members={activeTrip.members} tripCurrency={activeTrip.currency} />
                     </CardContent>
                   </Card>
@@ -910,7 +910,7 @@ export default function TripDetailPage() {
                       <CardTitle>Spending by Category</CardTitle>
                       <CardDescription>Total spending broken down by expense category.</CardDescription>
                     </CardHeader>
-                    <CardContent className="h-[300px] sm:h-[350px]">
+                    <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
                       <SpendingByCategoryChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
                     </CardContent>
                   </Card>
@@ -1007,3 +1007,4 @@ export default function TripDetailPage() {
     
 
     
+
