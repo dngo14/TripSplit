@@ -60,6 +60,9 @@ export function createInitialTripData(
     memberUIDs: [creatorUID],
     lastUpdatedAt: Timestamp.now(),
 
+    photoAlbums: [], // Initialize new photo albums array
+    photos: [],      // Initialize new photos array
+
     settlementClearances: [],
     currentSettlementsLastClearedAt: null,
   };
@@ -69,4 +72,3 @@ export const INITIAL_APP_STATE: AppState = {
   trips: [],
   activeTripId: null,
 };
-

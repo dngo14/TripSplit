@@ -92,6 +92,33 @@ export interface Settlement {
   toId: string;   // Member ID of the creditor
 }
 
+export interface PhotoAlbum {
+  id: string;
+  tripId: string;
+  name: string;
+  description?: string;
+  createdAt: Date | Timestamp;
+  creatorId: string;
+  coverPhotoURL?: string;
+  photoCount?: number; // Denormalized for quick display
+}
+
+export interface Photo {
+  id: string;
+  tripId: string;
+  albumId?: string | null; // null if not in an album (e.g., in "All Photos")
+  uploaderId: string;
+  uploaderName: string;
+  fileName: string;
+  storagePath: string; // Path in Firebase Storage
+  downloadURL: string;
+  contentType: string; // e.g., 'image/jpeg'
+  caption?: string;
+  createdAt: Date | Timestamp;
+  width?: number;
+  height?: number;
+}
+
 export interface TripData {
   id: string;
   tripName: string;
@@ -122,7 +149,6 @@ export interface TripData {
   returnFlightDepartureDateTime?: Date | Timestamp | null;
   returnFlightArrivalAirport?: string;
   returnFlightArrivalDateTime?: Date | Timestamp | null;
-  // Note: Confirmation and notes for return could be added if needed, but keeping them shared for now.
 
   notes?: string; // General trip notes
 
@@ -132,7 +158,18 @@ export interface TripData {
 
   creatorUID: string;
   memberUIDs: string[]; // Firebase Auth UIDs of users with access
+  
+  photoAlbums?: PhotoAlbum[]; // New: For photo sharing
+  photos?: Photo[];           // New: For photo sharing
+
   lastUpdatedAt?: Timestamp;
+  settlementClearances?: {
+    settlement: Settlement;
+    clearedByUID: string;
+    clearedByName: string;
+    clearedAt: Timestamp | Date;
+  }[];
+  currentSettlementsLastClearedAt?: Timestamp | Date | null;
 }
 
 export interface AppState {
@@ -147,4 +184,3 @@ export interface UserProfile {
     displayName: string | null;
     lastLogin: Timestamp;
 }
-

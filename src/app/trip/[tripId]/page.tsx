@@ -5,7 +5,7 @@ import type React from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation'; // Import useParams
 import { db, Timestamp, doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, deleteDoc, query, collection, where, getDocs, limit, writeBatch, serverTimestamp } from '@/lib/firebase';
-import type { TripData, Member, Expense, Comment, ChatMessage, ItineraryItem, ItineraryComment, SplitType, Settlement, PollData, PollOption } from '@/lib/types';
+import type { TripData, Member, Expense, Comment, ChatMessage, ItineraryItem, ItineraryComment, SplitType, Settlement, PollData, PollOption, PhotoAlbum, Photo } from '@/lib/types';
 import { CURRENCIES, createInitialTripData } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppHeader } from '@/components/layout/Header';
@@ -37,11 +37,12 @@ import { SettlementLogDialog } from '@/components/trip/SettlementLogDialog';
 import { SpendingOverTimeChart } from '@/components/trip/charts/SpendingOverTimeChart';
 import { SpendingByMemberChart } from '@/components/trip/charts/SpendingByMemberChart';
 import { SpendingByCategoryChart } from '@/components/trip/charts/SpendingByCategoryChart';
+import { PhotoSharingTab } from '@/components/trip/PhotoSharingTab';
 
 
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutList, MessageSquare, InfoIcon, Wand2, CalendarCheck, PiggyBank } from 'lucide-react';
+import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutList, MessageSquare, InfoIcon, Wand2, CalendarCheck, PiggyBank, Camera } from 'lucide-react';
 import { prepareDataForFirestore } from '@/lib/firestore-utils';
 
 const EXPENSES_PER_PAGE = 5;
@@ -108,6 +109,8 @@ export default function TripDetailPage() {
             chatMessages: Array.isArray(rawData.chatMessages) ? rawData.chatMessages.filter(c => c != null) : [],
             memberUIDs: Array.isArray(rawData.memberUIDs) ? rawData.memberUIDs.filter(uid => uid != null) : [],
             settlementClearances: Array.isArray(rawData.settlementClearances) ? rawData.settlementClearances.filter(sc => sc != null) : [],
+            photoAlbums: Array.isArray(rawData.photoAlbums) ? rawData.photoAlbums.filter(pa => pa != null) : [], // Initialize photoAlbums
+            photos: Array.isArray(rawData.photos) ? rawData.photos.filter(p => p != null) : [],                 // Initialize photos
         };
 
         let tripDataWithDates = convertTimestampsToDates(guaranteedData) as Omit<TripData, 'id'>;
@@ -131,6 +134,17 @@ export default function TripDetailPage() {
             ...sc,
             clearedAt: sc.clearedAt 
         })).filter(sc => sc != null);
+
+        tripDataWithDates.photoAlbums = (tripDataWithDates.photoAlbums || []).map(album => ({
+          ...album,
+          createdAt: album.createdAt
+        })).filter(pa => pa != null);
+
+        tripDataWithDates.photos = (tripDataWithDates.photos || []).map(photo => ({
+          ...photo,
+          createdAt: photo.createdAt
+        })).filter(p => p != null);
+
 
         if(tripDataWithDates.currentSettlementsLastClearedAt) {
             // This field is directly a Timestamp or null, so convertTimestampsToDates handles it.
@@ -780,6 +794,7 @@ export default function TripDetailPage() {
                 <TabsTrigger value="activity"><LayoutList className="mr-2" />Activity</TabsTrigger>
                 <TabsTrigger value="itinerary"><CalendarCheck className="mr-2" />Itinerary</TabsTrigger>
                 <TabsTrigger value="budget"><PiggyBank className="mr-2" />Budget</TabsTrigger>
+                <TabsTrigger value="photos"><Camera className="mr-2" />Photos</TabsTrigger>
                 <TabsTrigger value="ai-plan"><Wand2 className="mr-2" />Plan with AI</TabsTrigger>
                 <TabsTrigger value="chat"><MessageSquare className="mr-2" />Trip Chat</TabsTrigger>
               </TabsList>
@@ -923,6 +938,16 @@ export default function TripDetailPage() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+          
+          <TabsContent value="photos">
+            <PhotoSharingTab 
+              tripId={activeTrip.id}
+              photoAlbums={activeTrip.photoAlbums || []}
+              photos={activeTrip.photos || []}
+              members={activeTrip.members}
+              onUpdateTripData={updateActiveTripInFirestore}
+            />
           </TabsContent>
 
           <TabsContent value="ai-plan">
