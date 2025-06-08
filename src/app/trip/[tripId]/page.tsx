@@ -42,7 +42,7 @@ import { PhotoSharingTab } from '@/components/trip/PhotoSharingTab';
 
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutList, MessageSquare, InfoIcon, Wand2, CalendarCheck, PiggyBank, Camera } from 'lucide-react';
+import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutList, MessageSquare, InfoIcon, Wand2, CalendarCheck, PiggyBank, Camera, BarChart3 } from 'lucide-react';
 import { prepareDataForFirestore } from '@/lib/firestore-utils';
 
 const EXPENSES_PER_PAGE = 5;
@@ -71,6 +71,7 @@ export default function TripDetailPage() {
   const [isItineraryFormOpen, setIsItineraryFormOpen] = useState(false);
 
   const [isSettlementLogDialogOpen, setIsSettlementLogDialogOpen] = useState(false);
+  const [isBudgetInsightsDialogOpen, setIsBudgetInsightsDialogOpen] = useState(false);
 
   const [currentExpensesPage, setCurrentExpensesPage] = useState(1);
   const [currentItineraryPage, setCurrentItineraryPage] = useState(1);
@@ -793,7 +794,6 @@ export default function TripDetailPage() {
                 <TabsTrigger value="info"><InfoIcon className="mr-2" />Trip Info</TabsTrigger>
                 <TabsTrigger value="activity"><LayoutList className="mr-2" />Activity</TabsTrigger>
                 <TabsTrigger value="itinerary"><CalendarCheck className="mr-2" />Itinerary</TabsTrigger>
-                <TabsTrigger value="budget"><PiggyBank className="mr-2" />Budget</TabsTrigger>
                 <TabsTrigger value="photos"><Camera className="mr-2" />Photos</TabsTrigger>
                 <TabsTrigger value="ai-plan"><Wand2 className="mr-2" />Plan with AI</TabsTrigger>
                 <TabsTrigger value="chat"><MessageSquare className="mr-2" />Trip Chat</TabsTrigger>
@@ -824,7 +824,72 @@ export default function TripDetailPage() {
           </TabsContent>
 
           <TabsContent value="activity" className="space-y-6">
-            <div className="flex justify-end items-center gap-4 mb-4">
+            <div className="flex justify-between items-center gap-4 mb-4">
+                <Dialog open={isBudgetInsightsDialogOpen} onOpenChange={setIsBudgetInsightsDialogOpen}>
+                    <DialogTrigger asChild>
+                         <Button variant="outline" className="text-sm border-primary/50 hover:bg-primary/10">
+                            <BarChart3 className="mr-2 h-5 w-5" /> View Insights
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh]">
+                        <DialogHeader>
+                           <DialogTitle className="flex items-center text-xl"><BarChart3 className="mr-2 h-6 w-6" /> Budget Insights</DialogTitle>
+                           <CardDescription>Visual overview of your trip's spending.</CardDescription>
+                        </DialogHeader>
+                        <ScrollArea className="max-h-[75vh] p-1">
+                            <div className="space-y-6 py-4 pr-3">
+                                {activeTrip && activeTrip.expenses && activeTrip.expenses.length > 0 ? (
+                                <>
+                                    <Card>
+                                    <CardHeader>
+                                        <CardTitle>Spending Over Time</CardTitle>
+                                        <CardDescription>Total amount spent per day during the trip.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
+                                        <SpendingOverTimeChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
+                                    </CardContent>
+                                    </Card>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                    <Card>
+                                        <CardHeader>
+                                        <CardTitle>Spending by Member</CardTitle>
+                                        <CardDescription>Total amount paid by each trip member.</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
+                                        <SpendingByMemberChart expenses={activeTrip.expenses} members={activeTrip.members} tripCurrency={activeTrip.currency} />
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                        <CardHeader>
+                                        <CardTitle>Spending by Category</CardTitle>
+                                        <CardDescription>Total spending broken down by expense category.</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
+                                        <SpendingByCategoryChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
+                                        </CardContent>
+                                    </Card>
+                                    </div>
+                                </>
+                                ) : (
+                                <Card>
+                                    <CardHeader>
+                                    <CardTitle>Budget Dashboard</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                    <p className="text-muted-foreground">No expenses logged yet to display budget charts.</p>
+                                    </CardContent>
+                                </Card>
+                                )}
+                            </div>
+                        </ScrollArea>
+                         <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsBudgetInsightsDialogOpen(false)}>Close</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
                 <Dialog open={isAddExpenseDialogOpen} onOpenChange={setIsAddExpenseDialogOpen}>
                     <DialogTrigger asChild>
                         <Button variant="outline" className="text-sm border-primary/50 hover:bg-primary/10">
@@ -891,53 +956,6 @@ export default function TripDetailPage() {
                 onCategoryChange={handleItineraryCategoryFilterChange}
               />
             </div>
-          </TabsContent>
-
-          <TabsContent value="budget" className="space-y-6">
-            {activeTrip && activeTrip.expenses && activeTrip.expenses.length > 0 ? (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Spending Over Time</CardTitle>
-                    <CardDescription>Total amount spent per day during the trip.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
-                    <SpendingOverTimeChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
-                  </CardContent>
-                </Card>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Spending by Member</CardTitle>
-                      <CardDescription>Total amount paid by each trip member.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
-                      <SpendingByMemberChart expenses={activeTrip.expenses} members={activeTrip.members} tripCurrency={activeTrip.currency} />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Spending by Category</CardTitle>
-                      <CardDescription>Total spending broken down by expense category.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
-                      <SpendingByCategoryChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
-                    </CardContent>
-                  </Card>
-                </div>
-              </>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Budget Dashboard</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">No expenses logged yet to display budget charts.</p>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
           
           <TabsContent value="photos">
@@ -1024,3 +1042,4 @@ export default function TripDetailPage() {
     </div>
   );
 }
+
