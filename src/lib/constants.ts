@@ -32,7 +32,7 @@ export function createInitialTripData(
     tripStartDate: null,
     tripEndDate: null,
     
-    // Initialize new structured flight details
+    // Initialize new structured flight details - Outbound
     mainFlightDepartureAirline: '',
     mainFlightDepartureNumber: '',
     mainFlightDepartureAirport: '',
@@ -41,6 +41,14 @@ export function createInitialTripData(
     mainFlightArrivalDateTime: null,
     mainFlightConfirmation: '',
     mainFlightNotes: '',
+
+    // Initialize new structured flight details - Return
+    returnFlightDepartureAirline: '',
+    returnFlightDepartureNumber: '',
+    returnFlightDepartureAirport: '',
+    returnFlightDepartureDateTime: null,
+    returnFlightArrivalAirport: '',
+    returnFlightArrivalDateTime: null,
 
     notes: '', // General trip notes
 
@@ -61,3 +69,4 @@ export const INITIAL_APP_STATE: AppState = {
   trips: [],
   activeTripId: null,
 };
+

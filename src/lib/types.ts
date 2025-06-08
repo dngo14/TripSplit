@@ -105,15 +105,24 @@ export interface TripData {
   tripStartDate?: Date | Timestamp | null;
   tripEndDate?: Date | Timestamp | null;
   
-  // Structured Flight Details
+  // Structured Flight Details - Outbound
   mainFlightDepartureAirline?: string;
   mainFlightDepartureNumber?: string;
   mainFlightDepartureAirport?: string;
   mainFlightDepartureDateTime?: Date | Timestamp | null;
   mainFlightArrivalAirport?: string;
   mainFlightArrivalDateTime?: Date | Timestamp | null;
-  mainFlightConfirmation?: string;
-  mainFlightNotes?: string;
+  mainFlightConfirmation?: string; // Shared for round trip potentially
+  mainFlightNotes?: string; // Shared for round trip potentially
+
+  // Structured Flight Details - Return
+  returnFlightDepartureAirline?: string;
+  returnFlightDepartureNumber?: string;
+  returnFlightDepartureAirport?: string;
+  returnFlightDepartureDateTime?: Date | Timestamp | null;
+  returnFlightArrivalAirport?: string;
+  returnFlightArrivalDateTime?: Date | Timestamp | null;
+  // Note: Confirmation and notes for return could be added if needed, but keeping them shared for now.
 
   notes?: string; // General trip notes
 
@@ -138,3 +147,4 @@ export interface UserProfile {
     displayName: string | null;
     lastLogin: Timestamp;
 }
+
