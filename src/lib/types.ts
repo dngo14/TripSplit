@@ -104,8 +104,18 @@ export interface TripData {
   accommodationAddress?: string;
   tripStartDate?: Date | Timestamp | null;
   tripEndDate?: Date | Timestamp | null;
-  flightDetails?: string;
-  notes?: string;
+  
+  // Structured Flight Details
+  mainFlightDepartureAirline?: string;
+  mainFlightDepartureNumber?: string;
+  mainFlightDepartureAirport?: string;
+  mainFlightDepartureDateTime?: Date | Timestamp | null;
+  mainFlightArrivalAirport?: string;
+  mainFlightArrivalDateTime?: Date | Timestamp | null;
+  mainFlightConfirmation?: string;
+  mainFlightNotes?: string;
+
+  notes?: string; // General trip notes
 
   destinationCity?: string;
   destinationCountry?: string;

@@ -11,10 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { TripData, Member } from '@/lib/types';
-import { InfoIcon, Home, CalendarDays, Plane, StickyNote, Save, Globe, Users2, PiggyBank, Phone } from 'lucide-react';
-import { format } from 'date-fns';
+import { InfoIcon, Home, CalendarDays, Plane, StickyNote, Save, Globe, Users2, PiggyBank, Phone, PlaneTakeoff, PlaneLanding, Ticket, Edit } from 'lucide-react';
+import { format, isValid, isDate } from 'date-fns';
 import type { Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 interface TripInfoProps {
   tripData: TripData;
@@ -25,24 +26,58 @@ export function TripInfo({ tripData, onTripInfoChange }: TripInfoProps) {
   const [accommodationAddress, setAccommodationAddress] = useState('');
   const [tripStartDate, setTripStartDate] = useState<Date | undefined>(undefined);
   const [tripEndDate, setTripEndDate] = useState<Date | undefined>(undefined);
-  const [flightDetails, setFlightDetails] = useState('');
-  const [notes, setNotes] = useState('');
+  
+  // Flight Details State
+  const [mainFlightDepartureAirline, setMainFlightDepartureAirline] = useState('');
+  const [mainFlightDepartureNumber, setMainFlightDepartureNumber] = useState('');
+  const [mainFlightDepartureAirport, setMainFlightDepartureAirport] = useState('');
+  const [mainFlightDepartureDate, setMainFlightDepartureDate] = useState<Date | undefined>(undefined);
+  const [mainFlightDepartureTime, setMainFlightDepartureTime] = useState('');
+  
+  const [mainFlightArrivalAirport, setMainFlightArrivalAirport] = useState('');
+  const [mainFlightArrivalDate, setMainFlightArrivalDate] = useState<Date | undefined>(undefined);
+  const [mainFlightArrivalTime, setMainFlightArrivalTime] = useState('');
+  
+  const [mainFlightConfirmation, setMainFlightConfirmation] = useState('');
+  const [mainFlightNotes, setMainFlightNotes] = useState('');
+
+  const [notes, setNotes] = useState(''); // General trip notes
   const [destinationCity, setDestinationCity] = useState('');
   const [destinationCountry, setDestinationCountry] = useState('');
   const [budget, setBudget] = useState<string>('');
   const [memberContacts, setMemberContacts] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
+  const convertFirestoreTimestampToDate = (timestamp: Date | Timestamp | null | undefined): Date | undefined => {
+    if (!timestamp) return undefined;
+    if (timestamp instanceof Date) return timestamp;
+    if (typeof (timestamp as Timestamp).toDate === 'function') return (timestamp as Timestamp).toDate();
+    // Attempt to parse if it's a string or number, though ideally it's Date or Timestamp
+    const d = new Date(timestamp as any);
+    return isValid(d) ? d : undefined;
+  };
+
   useEffect(() => {
     setAccommodationAddress(tripData.accommodationAddress || '');
+    setTripStartDate(convertFirestoreTimestampToDate(tripData.tripStartDate));
+    setTripEndDate(convertFirestoreTimestampToDate(tripData.tripEndDate));
     
-    const startDate = tripData.tripStartDate;
-    setTripStartDate(startDate ? (startDate as Timestamp).toDate?.() || new Date(startDate as any) : undefined);
-    
-    const endDate = tripData.tripEndDate;
-    setTripEndDate(endDate ? (endDate as Timestamp).toDate?.() || new Date(endDate as any) : undefined);
+    // Populate Flight Details
+    setMainFlightDepartureAirline(tripData.mainFlightDepartureAirline || '');
+    setMainFlightDepartureNumber(tripData.mainFlightDepartureNumber || '');
+    setMainFlightDepartureAirport(tripData.mainFlightDepartureAirport || '');
+    const depDateTime = convertFirestoreTimestampToDate(tripData.mainFlightDepartureDateTime);
+    setMainFlightDepartureDate(depDateTime);
+    setMainFlightDepartureTime(depDateTime ? format(depDateTime, "HH:mm") : '');
 
-    setFlightDetails(tripData.flightDetails || '');
+    setMainFlightArrivalAirport(tripData.mainFlightArrivalAirport || '');
+    const arrDateTime = convertFirestoreTimestampToDate(tripData.mainFlightArrivalDateTime);
+    setMainFlightArrivalDate(arrDateTime);
+    setMainFlightArrivalTime(arrDateTime ? format(arrDateTime, "HH:mm") : '');
+
+    setMainFlightConfirmation(tripData.mainFlightConfirmation || '');
+    setMainFlightNotes(tripData.mainFlightNotes || '');
+
     setNotes(tripData.notes || '');
     setDestinationCity(tripData.destinationCity || '');
     setDestinationCountry(tripData.destinationCountry || '');
@@ -58,6 +93,28 @@ export function TripInfo({ tripData, onTripInfoChange }: TripInfoProps) {
 
   const handleSave = <K extends keyof TripData>(field: K, value: TripData[K] | null | number | Member[]) => {
     onTripInfoChange(field, value);
+  };
+
+  const combineDateTime = (dateVal: Date | undefined, timeStr: string): Date | null => {
+    if (!dateVal) return null;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const newDate = new Date(dateVal); // Important to create a new Date object
+    if (!isNaN(hours) && !isNaN(minutes)) {
+      newDate.setHours(hours, minutes, 0, 0); // Set seconds and ms to 0
+      return newDate;
+    }
+    // if time is not set or invalid, but date is, save just the date (time will be 00:00:00 in local timezone)
+    newDate.setHours(0,0,0,0);
+    return newDate; 
+  };
+
+  const handleDateTimeFieldSave = (
+    field: 'mainFlightDepartureDateTime' | 'mainFlightArrivalDateTime',
+    dateValue: Date | undefined,
+    timeValue: string
+  ) => {
+    const combined = combineDateTime(dateValue, timeValue);
+    onTripInfoChange(field, combined);
   };
 
   const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,18 +243,88 @@ export function TripInfo({ tripData, onTripInfoChange }: TripInfoProps) {
             </Popover>
           </div>
         </div>
+        
+        <Separator />
+        
+        {/* New Flight Details Section */}
+        <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center"><Plane className="mr-2 h-5 w-5 text-primary"/>Main Flight Details</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                 {/* Departure Flight Info */}
+                <div className="space-y-4 p-3 border rounded-md bg-muted/30">
+                    <h4 className="font-medium text-md flex items-center"><PlaneTakeoff className="mr-2 h-5 w-5"/>Departure</h4>
+                    <div>
+                        <Label htmlFor="mainFlightDepartureAirline" className="text-xs">Airline</Label>
+                        <Input id="mainFlightDepartureAirline" value={mainFlightDepartureAirline} onChange={e => setMainFlightDepartureAirline(e.target.value)} onBlur={() => handleSave('mainFlightDepartureAirline', mainFlightDepartureAirline)} placeholder="e.g., United" />
+                    </div>
+                    <div>
+                        <Label htmlFor="mainFlightDepartureNumber" className="text-xs">Flight Number</Label>
+                        <Input id="mainFlightDepartureNumber" value={mainFlightDepartureNumber} onChange={e => setMainFlightDepartureNumber(e.target.value)} onBlur={() => handleSave('mainFlightDepartureNumber', mainFlightDepartureNumber)} placeholder="e.g., UA 123" />
+                    </div>
+                    <div>
+                        <Label htmlFor="mainFlightDepartureAirport" className="text-xs">Departure Airport</Label>
+                        <Input id="mainFlightDepartureAirport" value={mainFlightDepartureAirport} onChange={e => setMainFlightDepartureAirport(e.target.value)} onBlur={() => handleSave('mainFlightDepartureAirport', mainFlightDepartureAirport)} placeholder="e.g., JFK - New York" />
+                    </div>
+                    <div>
+                        <Label htmlFor="mainFlightDepartureDateTime" className="text-xs">Departure Date & Time</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="mainFlightDepartureDateTime" variant="outline" className="w-full justify-start text-left font-normal text-sm">
+                                    <CalendarDays className="mr-2 h-4 w-4"/>
+                                    {mainFlightDepartureDate ? `${format(mainFlightDepartureDate, "PPP")} ${mainFlightDepartureTime || '(Set Time)'}` : "Set Date & Time"}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={mainFlightDepartureDate} onSelect={date => { setMainFlightDepartureDate(date); handleDateTimeFieldSave('mainFlightDepartureDateTime', date, mainFlightDepartureTime);}} initialFocus/>
+                                <div className="p-2 border-t">
+                                    <Input type="time" value={mainFlightDepartureTime} onChange={e => {setMainFlightDepartureTime(e.target.value); handleDateTimeFieldSave('mainFlightDepartureDateTime', mainFlightDepartureDate, e.target.value);}} />
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
 
-        <div>
-          <Label htmlFor="flightDetails" className="flex items-center mb-1"><Plane className="mr-2 h-4 w-4" />Flight Details</Label>
-          <Textarea
-            id="flightDetails"
-            value={flightDetails}
-            onChange={(e) => setFlightDetails(e.target.value)}
-            onBlur={() => handleSave('flightDetails', flightDetails)}
-            placeholder="e.g., UA 123, JFK -> LAX, Departs 10:00 AM"
-            rows={3}
-          />
+                {/* Arrival Flight Info */}
+                 <div className="space-y-4 p-3 border rounded-md bg-muted/30">
+                    <h4 className="font-medium text-md flex items-center"><PlaneLanding className="mr-2 h-5 w-5"/>Arrival</h4>
+                     <div>
+                        <Label htmlFor="mainFlightArrivalAirport" className="text-xs">Arrival Airport</Label>
+                        <Input id="mainFlightArrivalAirport" value={mainFlightArrivalAirport} onChange={e => setMainFlightArrivalAirport(e.target.value)} onBlur={() => handleSave('mainFlightArrivalAirport', mainFlightArrivalAirport)} placeholder="e.g., LAX - Los Angeles" />
+                    </div>
+                    <div>
+                        <Label htmlFor="mainFlightArrivalDateTime" className="text-xs">Arrival Date & Time</Label>
+                         <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="mainFlightArrivalDateTime" variant="outline" className="w-full justify-start text-left font-normal text-sm">
+                                    <CalendarDays className="mr-2 h-4 w-4"/>
+                                    {mainFlightArrivalDate ? `${format(mainFlightArrivalDate, "PPP")} ${mainFlightArrivalTime || '(Set Time)'}` : "Set Date & Time"}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={mainFlightArrivalDate} onSelect={date => {setMainFlightArrivalDate(date); handleDateTimeFieldSave('mainFlightArrivalDateTime', date, mainFlightArrivalTime);}} disabled={(date) => mainFlightDepartureDate ? date < mainFlightDepartureDate : false} initialFocus/>
+                                <div className="p-2 border-t">
+                                    <Input type="time" value={mainFlightArrivalTime} onChange={e => {setMainFlightArrivalTime(e.target.value); handleDateTimeFieldSave('mainFlightArrivalDateTime', mainFlightArrivalDate, e.target.value);}} />
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 items-end">
+                <div>
+                    <Label htmlFor="mainFlightConfirmation" className="flex items-center mb-1"><Ticket className="mr-2 h-4 w-4" />Booking Reference / PNR</Label>
+                    <Input id="mainFlightConfirmation" value={mainFlightConfirmation} onChange={e => setMainFlightConfirmation(e.target.value)} onBlur={() => handleSave('mainFlightConfirmation', mainFlightConfirmation)} placeholder="e.g., ABC123XYZ"/>
+                </div>
+            </div>
+             <div>
+                <Label htmlFor="mainFlightNotes" className="flex items-center mb-1"><Edit className="mr-2 h-4 w-4" />Flight Notes</Label>
+                <Textarea id="mainFlightNotes" value={mainFlightNotes} onChange={e => setMainFlightNotes(e.target.value)} onBlur={() => handleSave('mainFlightNotes', mainFlightNotes)} placeholder="e.g., Seat numbers, baggage allowance, layover info" rows={2}/>
+            </div>
         </div>
+        
+        <Separator />
         
         <div className="space-y-3">
           <Label className="flex items-center mb-1 text-md font-semibold"><Users2 className="mr-2 h-5 w-5" />Member Contact Information</Label>
@@ -245,8 +372,8 @@ export function TripInfo({ tripData, onTripInfoChange }: TripInfoProps) {
         <div>
           <Label htmlFor="tripNotes" className="flex items-center mb-1"><StickyNote className="mr-2 h-4 w-4" />Other Important Trip Notes</Label>
           <Textarea
-            id="tripNotes"
-            value={notes}
+            id="tripNotes" // This refers to the general tripData.notes
+            value={notes} // Uses the 'notes' state variable meant for general trip notes
             onChange={(e) => setNotes(e.target.value)}
             onBlur={() => handleSave('notes', notes)}
             placeholder="e.g., Emergency contacts, visa info, packing list reminders"

@@ -31,8 +31,18 @@ export function createInitialTripData(
     accommodationAddress: '',
     tripStartDate: null,
     tripEndDate: null,
-    flightDetails: '',
-    notes: '',
+    
+    // Initialize new structured flight details
+    mainFlightDepartureAirline: '',
+    mainFlightDepartureNumber: '',
+    mainFlightDepartureAirport: '',
+    mainFlightDepartureDateTime: null,
+    mainFlightArrivalAirport: '',
+    mainFlightArrivalDateTime: null,
+    mainFlightConfirmation: '',
+    mainFlightNotes: '',
+
+    notes: '', // General trip notes
 
     destinationCity: '',
     destinationCountry: '',
