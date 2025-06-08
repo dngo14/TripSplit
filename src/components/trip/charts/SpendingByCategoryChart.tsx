@@ -45,7 +45,6 @@ export function SpendingByCategoryChart({ expenses, tripCurrency }: SpendingByCa
       };
     });
     
-    // Sort data for consistent pie chart segment order if desired
     dataForPie.sort((a, b) => b.value - a.value);
 
 
@@ -62,7 +61,7 @@ export function SpendingByCategoryChart({ expenses, tripCurrency }: SpendingByCa
         <PieChart>
           <Tooltip
             cursor={false}
-            content={<ChartTooltipContent hideLabel indicator="line" nameKey="name" labelKey="value" formatter={(value, name) => `${name}: ${value.toLocaleString()} ${tripCurrency}`} />}
+            content={<ChartTooltipContent hideLabel indicator="line" nameKey="name" formatter={(value, name) => `${name}: ${value.toLocaleString()} ${tripCurrency}`} />}
           />
           <Pie
             data={chartData}
@@ -70,9 +69,8 @@ export function SpendingByCategoryChart({ expenses, tripCurrency }: SpendingByCa
             nameKey="name"
             cx="50%"
             cy="50%"
-            outerRadius={80}
+            outerRadius={70} // Reduced outerRadius
             labelLine={false}
-            // label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} // Can be verbose for many categories
           >
             {chartData.map((entry) => (
               <Cell key={`cell-${entry.name}`} fill={entry.fill} />
@@ -81,11 +79,13 @@ export function SpendingByCategoryChart({ expenses, tripCurrency }: SpendingByCa
           <Legend content={({ payload }) => {
              if (!payload) return null;
              return (
-                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs mt-3">
+                <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1 text-xs mt-2 px-2"> {/* Adjusted gap and padding */}
                 {payload.map((entry, index) => (
-                    <div key={`item-${index}`} className="flex items-center">
-                    <span style={{ backgroundColor: entry.color }} className="w-2.5 h-2.5 rounded-full mr-1.5"></span>
-                    {entry.value} ({((entry.payload as any)?.percent * 100 || 0).toFixed(0)}%)
+                    <div key={`item-${index}`} className="flex items-center text-left"> {/* Removed max-width, rely on flex-wrap */}
+                      <span style={{ backgroundColor: entry.color, minWidth: '8px' }} className="w-2 h-2 rounded-full mr-1.5 flex-shrink-0"></span> {/* Smaller indicator */}
+                      <span className="whitespace-normal break-words leading-tight"> {/* Allow wrapping, tight leading */}
+                        {entry.value} ({((entry.payload as any)?.percent * 100 || 0).toFixed(0)}%)
+                      </span>
                     </div>
                 ))}
                 </div>
@@ -96,6 +96,3 @@ export function SpendingByCategoryChart({ expenses, tripCurrency }: SpendingByCa
     </ChartContainer>
   );
 }
-
-
-    

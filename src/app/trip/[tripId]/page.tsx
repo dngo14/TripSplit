@@ -5,7 +5,7 @@ import type React from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation'; // Import useParams
 import { db, Timestamp, doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, deleteDoc, query, collection, where, getDocs, limit, writeBatch, serverTimestamp } from '@/lib/firebase';
-import type { TripData, Member, Expense, Comment, ChatMessage, ItineraryItem, ItineraryComment, SplitType, Settlement, PollData, PollOption, SettlementClearance } from '@/lib/types';
+import type { TripData, Member, Expense, Comment, ChatMessage, ItineraryItem, ItineraryComment, SplitType, Settlement, PollData, PollOption } from '@/lib/types';
 import { CURRENCIES, createInitialTripData } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppHeader } from '@/components/layout/Header';
@@ -115,21 +115,21 @@ export default function TripDetailPage() {
         tripDataWithDates.members = (tripDataWithDates.members || []).filter(m => m != null);
         tripDataWithDates.expenses = (tripDataWithDates.expenses || []).map(exp => ({
           ...exp,
-          date: exp.date, // ensure date is preserved
-          createdAt: exp.createdAt, // ensure createdAt is preserved
+          date: exp.date, 
+          createdAt: exp.createdAt, 
           comments: (exp.comments || []).filter(c => c != null)
         })).filter(e => e != null);
         tripDataWithDates.itinerary = (tripDataWithDates.itinerary || []).map(item => ({
           ...item,
-          visitDate: item.visitDate, // ensure visitDate is preserved
-          createdAt: item.createdAt, // ensure createdAt is preserved
+          visitDate: item.visitDate, 
+          createdAt: item.createdAt, 
           comments: (item.comments || []).filter(c => c != null)
         })).filter(i => i != null && typeof i === 'object');
         tripDataWithDates.chatMessages = (tripDataWithDates.chatMessages || []).filter(c => c != null);
         
         tripDataWithDates.settlementClearances = (tripDataWithDates.settlementClearances || []).map(sc => ({
             ...sc,
-            clearedAt: sc.clearedAt // ensure clearedAt is preserved
+            clearedAt: sc.clearedAt 
         })).filter(sc => sc != null);
 
         if(tripDataWithDates.currentSettlementsLastClearedAt) {
@@ -169,7 +169,6 @@ export default function TripDetailPage() {
     if (Array.isArray(data)) {
       return data.map(convertTimestampsToDates);
     }
-    // Check if it's a plain object (and not a Date or other special object)
     if (data && typeof data === 'object' && !(data instanceof Date) && typeof (data as any).toDate !== 'function' && Object.getPrototypeOf(data) === Object.prototype) {
       const res: { [key: string]: any } = {};
       for (const key in data) {
@@ -244,14 +243,14 @@ export default function TripDetailPage() {
                     toastDescription = `${existingUserData.displayName || name.trim()} already has access to this trip.`;
                     
                     const localMemberIndex = activeTrip.members.findIndex(m => m.id === existingUserUID);
-                    if (localMemberIndex !== -1) { // Member already in display list, maybe update details
+                    if (localMemberIndex !== -1) { 
                         const localMember = activeTrip.members[localMemberIndex];
                         if (localMember.name !== (existingUserData.displayName || name.trim()) || localMember.email?.toLowerCase() !== existingUserData.email.toLowerCase()) {
                             const updatedMembers = [...activeTrip.members];
                             updatedMembers[localMemberIndex] = { ...localMember, name: existingUserData.displayName || name.trim(), email: existingUserData.email.toLowerCase() };
-                            updatePayload.members = updatedMembers; // Direct array update
+                            updatePayload.members = updatedMembers; 
                         }
-                    } else { // Has access via UID, but not in display list, add them
+                    } else { 
                          const memberToAdd = { id: existingUserUID, name: existingUserData.displayName || name.trim(), email: existingUserData.email.toLowerCase() };
                          updatePayload.members = arrayUnion(prepareDataForFirestore(memberToAdd));
                     }
@@ -602,7 +601,6 @@ export default function TripDetailPage() {
    const handleRecordPayment = async (settlement: Settlement) => {
     if (!activeTrip || !user) return;
 
-    // Find the actual member objects for payer and recipient
     const payer = activeTrip.members.find(m => m.id === settlement.fromId);
     const recipient = activeTrip.members.find(m => m.id === settlement.toId);
 
@@ -614,10 +612,10 @@ export default function TripDetailPage() {
     const paymentExpense: Omit<Expense, 'id' | 'comments' | 'createdAt'> = {
       description: `Settlement: ${payer.name} to ${recipient.name}`,
       amount: settlement.amount,
-      paidById: settlement.fromId, // The person who owes is "paying"
+      paidById: settlement.fromId, 
       category: 'Settlement Payment', 
       date: Timestamp.now(), 
-      splitType: 'byAmount', // The recipient "receives" the full amount
+      splitType: 'byAmount', 
       splitDetails: [{ memberId: settlement.toId, amount: settlement.amount }],
     };
     
@@ -650,7 +648,6 @@ export default function TripDetailPage() {
 
   const settlements = useMemo(() => {
     if (!activeTrip) return [];
-    // Filter out "Settlement Payment" expenses before calculating outstanding settlements
     const nonSettlementExpenses = activeTrip.expenses.filter(exp => exp.category !== "Settlement Payment");
     return calculateSettlements(nonSettlementExpenses, activeTrip.members);
   }, [activeTrip]);
@@ -732,7 +729,7 @@ export default function TripDetailPage() {
   }, [activeTrip?.id]);
 
 
-  if (authLoading || (isLoadingTrip && tripId)) { // Don't check !user here to avoid flash of "please sign in"
+  if (authLoading || (isLoadingTrip && tripId)) { 
     return (
       <div className="flex flex-col min-h-screen">
         <AppHeader tripName={activeTrip?.tripName} />
@@ -743,9 +740,9 @@ export default function TripDetailPage() {
     );
   }
 
-  if (!user) { // Now check !user, if still no user after authLoading, redirect or show sign in
-    if (isClient) router.replace('/'); // Ensure redirect happens client-side
-    return ( // Fallback UI, though redirect should happen quickly
+  if (!user) { 
+    if (isClient) router.replace('/'); 
+    return ( 
       <div className="flex flex-col min-h-screen">
         <AppHeader />
         <main className="flex-grow flex items-center justify-center p-4">
@@ -865,7 +862,7 @@ export default function TripDetailPage() {
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Itinerary Item
               </Button>
             </div>
-             <div className="min-h-[600px] flex flex-col"> {/* Container for ItineraryList */}
+             <div className="min-h-[600px] flex flex-col">
               <ItineraryList
                 itineraryItems={paginatedItineraryItems}
                 onEditItem={handleEditItineraryItem}
@@ -1002,9 +999,3 @@ export default function TripDetailPage() {
     </div>
   );
 }
-
-
-    
-
-    
-
