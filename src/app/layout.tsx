@@ -1,5 +1,5 @@
 
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import { Inter, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -32,8 +32,11 @@ export const metadata: Metadata = {
     date: false,
     url: false,
   },
-  themeColor: '#17191C', // Corresponds to --background HSL(220, 10%, 10%)
   manifest: '/manifest.json', 
+};
+
+export const viewport: Viewport = {
+  themeColor: '#17191C', // Corresponds to --background HSL(220, 10%, 10%)
 };
 
 export default function RootLayout({
