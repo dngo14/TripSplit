@@ -154,7 +154,7 @@ export function AiTripIdeation() {
         )}
 
         {aiSuggestions && !isLoading && (
-          <div className="mt-8 p-4 border rounded-lg bg-card/50">
+          <div className="mt-8 p-4 border rounded-lg bg-card">
             <h3 className="text-xl font-semibold mb-1 flex items-center">
                 AI Suggested Trip Title:
                 <Button variant="ghost" size="icon" className="ml-2 h-7 w-7" onClick={() => handleCopyToClipboard(aiSuggestions.suggestedTitle, 'Title')}>

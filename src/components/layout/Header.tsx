@@ -6,6 +6,7 @@ import { Coins, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -23,27 +24,30 @@ export function AppHeader({ tripName }: HeaderProps) {
       )}>
         <Link href="/home" passHref>
           <div className="flex items-center space-x-2 cursor-pointer">
-            <Coins className="h-8 w-8 text-primary-foreground/90" />
-            <h1 className="text-3xl font-bold tracking-tight text-primary-foreground/90">TripSplit</h1>
+            <Coins className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">TripSplit</h1>
           </div>
         </Link>
         
-        {user && (
-          <div className="flex items-center space-x-4">
-            {tripName && <span className="text-lg hidden sm:inline text-muted-foreground">{tripName}</span>}
-            {/* Removed "Homescreen" text display */}
-            
-            {loading && <Skeleton className="h-8 w-24 rounded-md" />}
-            {!loading && (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm hidden md:inline text-muted-foreground">{user.displayName || user.email}</span>
-                <Button variant="outline" size="sm" onClick={signOut} className="border-primary/50 hover:bg-primary/10">
-                  <LogOut className="mr-1 h-4 w-4" /> Logout
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+          {user && (
+            <>
+              {tripName && <span className="text-lg hidden sm:inline text-foreground/80 font-medium">{tripName}</span>}
+              {/* Removed "Homescreen" text display */}
+              
+              {loading && <Skeleton className="h-8 w-24 rounded-md" />}
+              {!loading && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm hidden md:inline text-foreground/70 font-medium">{user.displayName || user.email}</span>
+                  <Button variant="outline" size="sm" onClick={signOut} className="border-primary/50 hover:bg-primary/10">
+                    <LogOut className="mr-1 h-4 w-4" /> Logout
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

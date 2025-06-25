@@ -34,23 +34,23 @@ export function SettlementSummary({
   };
 
   return (
-    <Card className="shadow-xl rounded-lg bg-card/80 backdrop-blur-sm">
+    <Card className="shadow-xl rounded-lg">
       <CardHeader>
         <CardTitle className="flex items-center text-xl">
           <Handshake className="mr-2 h-6 w-6 text-primary" /> Outstanding Settlements
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[150px] rounded-md border p-2 bg-muted/20">
+        <ScrollArea className="h-[150px] rounded-md border p-2 bg-muted/10">
           {settlements.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">All settled up!</p>
+            <p className="text-foreground/60 text-center py-4">All settled up!</p>
           ) : (
             <ul className="space-y-2">
               {settlements.map((settlement, index) => (
-                <li key={index} className="p-2 bg-background rounded-md shadow-sm text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-y-1 sm:gap-x-2">
-                  <div className="flex-grow min-w-0"> 
+                <li key={index} className="p-2 bg-card rounded-md shadow-sm text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-y-1 sm:gap-x-2 border">
+                  <div className="flex-grow min-w-0 text-foreground"> 
                     <span className="font-semibold">{settlement.from}</span> owes <span className="font-semibold">{settlement.to}</span>:
-                    <span className="font-bold text-primary-foreground ml-1 inline-block break-all">
+                    <span className="font-bold text-primary ml-1 inline-block break-all">
                         {settlement.amount.toFixed(2)} {tripCurrency}
                     </span>
                   </div>
@@ -86,7 +86,7 @@ export function SettlementSummary({
         </ScrollArea>
       </CardContent>
        <CardFooter className="pt-3 flex flex-col sm:flex-row gap-2 justify-center border-t">
-        <p className="text-xs text-muted-foreground text-center flex-grow mb-2 sm:mb-0 sm:mr-2">
+        <p className="text-xs text-foreground/50 text-center flex-grow mb-2 sm:mb-0 sm:mr-2">
           Recording a payment will add a "Settlement Payment" expense.
         </p>
         <Button onClick={handleViewLogClick} variant="outline" size="sm" className="w-full sm:w-auto">

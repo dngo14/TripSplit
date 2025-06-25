@@ -34,7 +34,7 @@ export function ExpenseList({
 }: ExpenseListProps) {
   
   return (
-    <Card className="shadow-xl rounded-lg flex-1 flex flex-col bg-card/80 backdrop-blur-sm">
+    <Card className="shadow-xl rounded-lg flex-1 flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center text-xl text-card-foreground">
           <ShoppingBag className="mr-2 h-6 w-6 text-primary" /> Trip Expenses

@@ -37,12 +37,15 @@ import { SettlementLogDialog } from '@/components/trip/SettlementLogDialog';
 import { SpendingOverTimeChart } from '@/components/trip/charts/SpendingOverTimeChart';
 import { SpendingByMemberChart } from '@/components/trip/charts/SpendingByMemberChart';
 import { SpendingByCategoryChart } from '@/components/trip/charts/SpendingByCategoryChart';
+import { BudgetVsActualChart } from '@/components/trip/charts/BudgetVsActualChart';
+import { ExpenseFrequencyChart } from '@/components/trip/charts/ExpenseFrequencyChart';
+import { TopExpensesChart } from '@/components/trip/charts/TopExpensesChart';
 import { PhotoSharingTab } from '@/components/trip/PhotoSharingTab';
 
 
 import { calculateSettlements } from '@/lib/settlement';
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutList, MessageSquare, InfoIcon, Wand2, CalendarCheck, PiggyBank, Camera, BarChart3 } from 'lucide-react';
+import { PlusCircle, Users, DollarSign as CurrencyIcon, Loader2, Home, LayoutList, MessageSquare, InfoIcon, Wand2, CalendarCheck, PiggyBank, Camera, BarChart3, TrendingUp, Calendar, PieChart, Activity, Crown, Calculator, MapPin } from 'lucide-react';
 import { prepareDataForFirestore } from '@/lib/firestore-utils';
 
 const EXPENSES_PER_PAGE = 5;
@@ -783,112 +786,108 @@ export default function TripDetailPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-secondary/30">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
       <AppHeader tripName={activeTrip.tripName} />
-      <main className="flex-grow container mx-auto p-4 md:p-6">
+      <main className="flex-grow container mx-auto px-4 md:px-8 lg:px-12 py-6 md:py-8">
+        {/* Trip Header Section */}
+        <div className="mb-8 md:mb-12">
+          <div className="bg-gradient-to-r from-card to-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-6 md:p-8 shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div className="space-y-3">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground tracking-tight">
+                  {activeTrip.tripName}
+                </h1>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-foreground/70">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span>{activeTrip.members?.length || 0} members</span>
+                  </div>
+                  {activeTrip.destinationCity && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>{[activeTrip.destinationCity, activeTrip.destinationCountry].filter(Boolean).join(', ')}</span>
+                    </div>
+                  )}
+                  {activeTrip.budget && (
+                    <div className="flex items-center gap-2">
+                      <CurrencyIcon className="h-4 w-4" />
+                      <span>Budget: {activeTrip.budget} {activeTrip.currency}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Dialog open={isBudgetInsightsDialogOpen} onOpenChange={setIsBudgetInsightsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
+                      <BarChart3 className="mr-2 h-5 w-5" /> View Insights
+                    </Button>
+                  </DialogTrigger>
+                </Dialog>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <Tabs defaultValue="activity" className="w-full">
-          <div className="flex justify-center mb-6">
-            <ScrollArea orientation="horizontal" className="pb-2.5">
-              <TabsList className="inline-flex">
-                <TabsTrigger value="manage"><Users className="mr-2" />Manage</TabsTrigger>
-                <TabsTrigger value="info"><InfoIcon className="mr-2" />Trip Info</TabsTrigger>
-                <TabsTrigger value="activity"><LayoutList className="mr-2" />Activity</TabsTrigger>
-                <TabsTrigger value="itinerary"><CalendarCheck className="mr-2" />Itinerary</TabsTrigger>
-                <TabsTrigger value="photos"><Camera className="mr-2" />Photos</TabsTrigger>
-                <TabsTrigger value="ai-plan"><Wand2 className="mr-2" />Plan with AI</TabsTrigger>
-                <TabsTrigger value="chat"><MessageSquare className="mr-2" />Trip Chat</TabsTrigger>
+          <div className="mb-8">
+            <ScrollArea orientation="horizontal" className="pb-3">
+              <TabsList className="inline-flex bg-card/50 backdrop-blur-sm border border-border/30 shadow-lg p-1 rounded-xl">
+                <TabsTrigger value="manage" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
+                  <Users className="mr-2 h-4 w-4" />Manage
+                </TabsTrigger>
+                <TabsTrigger value="info" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
+                  <InfoIcon className="mr-2 h-4 w-4" />Trip Info
+                </TabsTrigger>
+                <TabsTrigger value="activity" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
+                  <LayoutList className="mr-2 h-4 w-4" />Activity
+                </TabsTrigger>
+                <TabsTrigger value="itinerary" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
+                  <CalendarCheck className="mr-2 h-4 w-4" />Itinerary
+                </TabsTrigger>
+                <TabsTrigger value="photos" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
+                  <Camera className="mr-2 h-4 w-4" />Photos
+                </TabsTrigger>
+                <TabsTrigger value="ai-plan" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
+                  <Wand2 className="mr-2 h-4 w-4" />Plan with AI
+                </TabsTrigger>
+                <TabsTrigger value="chat" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
+                  <MessageSquare className="mr-2 h-4 w-4" />Trip Chat
+                </TabsTrigger>
               </TabsList>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
 
-          <TabsContent value="manage" className="space-y-6">
-            <TripSettings
-              tripName={activeTrip.tripName}
-              onTripNameChange={handleTripNameChange}
-              currency={activeTrip.currency}
-              onCurrencyChange={handleCurrencyChange}
-              onDeleteTrip={() => handleRequestDeleteItem(activeTrip.id, 'trip')}
-              isCreator={user.uid === activeTrip.creatorUID}
-            />
-            <MemberManager
-              members={activeTrip.members}
-              onAddMember={handleAddMember}
-              onRemoveMember={handleRemoveMember}
-              isCreator={user.uid === activeTrip.creatorUID}
-            />
+          <TabsContent value="manage" className="space-y-8 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+            <div className="grid gap-8 lg:grid-cols-2">
+              <div className="space-y-6">
+                <TripSettings
+                  tripName={activeTrip.tripName}
+                  onTripNameChange={handleTripNameChange}
+                  currency={activeTrip.currency}
+                  onCurrencyChange={handleCurrencyChange}
+                  onDeleteTrip={() => handleRequestDeleteItem(activeTrip.id, 'trip')}
+                  isCreator={user.uid === activeTrip.creatorUID}
+                />
+              </div>
+              <div className="space-y-6">
+                <MemberManager
+                  members={activeTrip.members}
+                  onAddMember={handleAddMember}
+                  onRemoveMember={handleRemoveMember}
+                  isCreator={user.uid === activeTrip.creatorUID}
+                />
+              </div>
+            </div>
           </TabsContent>
 
-          <TabsContent value="info">
+          <TabsContent value="info" className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
              <TripInfo tripData={activeTrip} onTripInfoChange={handleTripInfoChange} />
           </TabsContent>
 
-          <TabsContent value="activity" className="space-y-6">
-            <div className="flex justify-between items-center gap-4 mb-4">
-                <Dialog open={isBudgetInsightsDialogOpen} onOpenChange={setIsBudgetInsightsDialogOpen}>
-                    <DialogTrigger asChild>
-                         <Button variant="outline" className="text-sm border-primary/50 hover:bg-primary/10">
-                            <BarChart3 className="mr-2 h-5 w-5" /> View Insights
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[90vh]">
-                        <DialogHeader>
-                           <DialogTitle className="flex items-center text-xl"><BarChart3 className="mr-2 h-6 w-6" /> Budget Insights</DialogTitle>
-                           <CardDescription>Visual overview of your trip's spending.</CardDescription>
-                        </DialogHeader>
-                        <ScrollArea className="max-h-[75vh] p-1">
-                            <div className="space-y-6 py-4 pr-3">
-                                {activeTrip && activeTrip.expenses && activeTrip.expenses.length > 0 ? (
-                                <>
-                                    <Card>
-                                    <CardHeader>
-                                        <CardTitle>Spending Over Time</CardTitle>
-                                        <CardDescription>Total amount spent per day during the trip.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
-                                        <SpendingOverTimeChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
-                                    </CardContent>
-                                    </Card>
-
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                    <Card>
-                                        <CardHeader>
-                                        <CardTitle>Spending by Member</CardTitle>
-                                        <CardDescription>Total amount paid by each trip member.</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
-                                        <SpendingByMemberChart expenses={activeTrip.expenses} members={activeTrip.members} tripCurrency={activeTrip.currency} />
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card>
-                                        <CardHeader>
-                                        <CardTitle>Spending by Category</CardTitle>
-                                        <CardDescription>Total spending broken down by expense category.</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="h-[300px] sm:h-[350px] md:h-[400px]">
-                                        <SpendingByCategoryChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
-                                        </CardContent>
-                                    </Card>
-                                    </div>
-                                </>
-                                ) : (
-                                <Card>
-                                    <CardHeader>
-                                    <CardTitle>Budget Dashboard</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                    <p className="text-muted-foreground">No expenses logged yet to display budget charts.</p>
-                                    </CardContent>
-                                </Card>
-                                )}
-                            </div>
-                        </ScrollArea>
-                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsBudgetInsightsDialogOpen(false)}>Close</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+          <TabsContent value="activity" className="space-y-8 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-between items-center gap-4 mb-6">
 
                 <Dialog open={isAddExpenseDialogOpen} onOpenChange={setIsAddExpenseDialogOpen}>
                     <DialogTrigger asChild>
@@ -1039,6 +1038,171 @@ export default function TripDetailPage() {
           tripCurrency={activeTrip.currency}
           members={activeTrip.members}
         />
+
+        {/* Budget Insights Dialog */}
+        <Dialog open={isBudgetInsightsDialogOpen} onOpenChange={setIsBudgetInsightsDialogOpen}>
+          <DialogContent className="sm:max-w-4xl md:max-w-5xl lg:max-w-7xl max-h-[90vh]">
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="flex items-center text-2xl"><BarChart3 className="mr-3 h-7 w-7 text-primary" /> Budget Insights & Analytics</DialogTitle>
+              <CardDescription className="text-base">Comprehensive visual analysis of your trip's spending patterns, budget performance, and financial insights.</CardDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[75vh] p-2">
+              <div className="space-y-8 py-6 pr-4">
+                {activeTrip && activeTrip.expenses && activeTrip.expenses.length > 0 ? (
+                  <>
+                    {/* Budget vs Actual - Top Priority */}
+                    {activeTrip.budget && (
+                      <Card className="border-2 border-primary/20">
+                        <CardHeader className="pb-4">
+                          <CardTitle className="flex items-center text-lg">
+                            <TrendingUp className="mr-2 h-5 w-5 text-primary" />
+                            Budget vs Actual Spending
+                          </CardTitle>
+                          <CardDescription>Track your spending against your budget goal over time.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <BudgetVsActualChart 
+                            expenses={activeTrip.expenses} 
+                            tripCurrency={activeTrip.currency} 
+                            budget={activeTrip.budget}
+                          />
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Main Spending Overview */}
+                    <Card>
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center text-lg">
+                          <Calendar className="mr-2 h-5 w-5 text-primary" />
+                          Spending Over Time
+                        </CardTitle>
+                        <CardDescription>Daily spending progression throughout your trip.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <SpendingOverTimeChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
+                      </CardContent>
+                    </Card>
+
+                    {/* Member and Category Analysis - Side by Side */}
+                    <div className="grid lg:grid-cols-2 gap-8">
+                      <Card>
+                        <CardHeader className="pb-4">
+                          <CardTitle className="flex items-center text-lg">
+                            <Users className="mr-2 h-5 w-5 text-primary" />
+                            Spending by Member
+                          </CardTitle>
+                          <CardDescription>Compare total contributions by each trip member.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <SpendingByMemberChart expenses={activeTrip.expenses} members={activeTrip.members} tripCurrency={activeTrip.currency} />
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-4">
+                          <CardTitle className="flex items-center text-lg">
+                            <PieChart className="mr-2 h-5 w-5 text-primary" />
+                            Spending by Category
+                          </CardTitle>
+                          <CardDescription>Breakdown of expenses across different categories.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <SpendingByCategoryChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Detailed Analysis - Three Column Layout */}
+                    <div className="grid lg:grid-cols-3 gap-6">
+                      <Card>
+                        <CardHeader className="pb-4">
+                          <CardTitle className="flex items-center text-base">
+                            <Activity className="mr-2 h-4 w-4 text-primary" />
+                            Expense Frequency
+                          </CardTitle>
+                          <CardDescription className="text-sm">Daily expense activity patterns.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <ExpenseFrequencyChart expenses={activeTrip.expenses} />
+                        </CardContent>
+                      </Card>
+
+                      <Card className="lg:col-span-2">
+                        <CardHeader className="pb-4">
+                          <CardTitle className="flex items-center text-base">
+                            <Crown className="mr-2 h-4 w-4 text-primary" />
+                            Top Expenses
+                          </CardTitle>
+                          <CardDescription className="text-sm">Largest individual expenses in descending order.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <TopExpensesChart expenses={activeTrip.expenses} tripCurrency={activeTrip.currency} />
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Summary Stats */}
+                    <Card className="bg-muted/30">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center text-lg">
+                          <Calculator className="mr-2 h-5 w-5 text-primary" />
+                          Trip Summary
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                          <div className="text-center space-y-1">
+                            <p className="text-2xl font-bold text-primary">
+                              {activeTrip.expenses.reduce((sum, exp) => sum + exp.amount, 0).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-foreground/70">Total Spent ({activeTrip.currency})</p>
+                          </div>
+                          <div className="text-center space-y-1">
+                            <p className="text-2xl font-bold text-primary">
+                              {activeTrip.expenses.length}
+                            </p>
+                            <p className="text-sm text-foreground/70">Total Expenses</p>
+                          </div>
+                          <div className="text-center space-y-1">
+                            <p className="text-2xl font-bold text-primary">
+                              {(activeTrip.expenses.reduce((sum, exp) => sum + exp.amount, 0) / activeTrip.expenses.length).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-foreground/70">Average per Expense ({activeTrip.currency})</p>
+                          </div>
+                          <div className="text-center space-y-1">
+                            <p className="text-2xl font-bold text-primary">
+                              {(activeTrip.expenses.reduce((sum, exp) => sum + exp.amount, 0) / activeTrip.members.length).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-foreground/70">Average per Member ({activeTrip.currency})</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (
+                  <Card className="text-center py-12">
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-center text-xl">
+                        <BarChart3 className="mr-2 h-6 w-6 text-muted-foreground" />
+                        Budget Analytics Dashboard
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <p className="text-foreground/60 text-lg">No expenses logged yet to display budget charts.</p>
+                        <p className="text-foreground/50 text-sm">Start adding expenses to see comprehensive analytics and insights.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </ScrollArea>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsBudgetInsightsDialogOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }

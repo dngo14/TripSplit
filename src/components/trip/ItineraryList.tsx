@@ -39,7 +39,7 @@ export function ItineraryList({
   const displayedItems = itineraryItems;
 
   return (
-    <Card className="shadow-lg h-full flex flex-col bg-card/80 backdrop-blur-sm">
+    <Card className="shadow-lg h-full flex flex-col">
       <CardHeader>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <CardTitle className="flex items-center text-xl">

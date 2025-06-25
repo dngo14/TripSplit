@@ -195,16 +195,22 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-secondary/30 text-foreground">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 text-foreground">
       <AppHeader /> 
-      <main className="flex-grow container mx-auto p-4 md:p-6 space-y-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-semibold flex items-center">
-            <Briefcase className="mr-3 h-7 w-7 text-primary" /> Your Trips
-          </h1>
+      <main className="flex-grow container mx-auto px-4 md:px-8 lg:px-12 py-6 md:py-8 lg:py-12 space-y-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-4xl font-bold flex items-center gap-3 tracking-tight">
+              <Briefcase className="h-8 w-8 md:h-9 md:w-9 text-primary" /> 
+              Your Trips
+            </h1>
+            <p className="text-base text-foreground/70 max-w-2xl">
+              Manage your travel expenses, split costs with friends, and keep track of your adventures.
+            </p>
+          </div>
           <Dialog open={isCreateTripDialogOpen} onOpenChange={setIsCreateTripDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="text-sm border-primary/50 hover:bg-primary/10">
+              <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                 <PlusCircle className="mr-2 h-5 w-5" /> Create New Trip
               </Button>
             </DialogTrigger>
@@ -255,22 +261,63 @@ export default function HomePage() {
         )}
 
         {!isLoadingTrips && trips.length === 0 && (
-          <div className="text-center p-10 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg">
-            <h2 className="text-xl font-semibold mb-2 text-card-foreground">No trips yet!</h2>
-            <p className="text-muted-foreground mb-4">Click "Create New Trip" to start planning.</p>
+          <div className="text-center p-12 md:p-16 bg-gradient-to-br from-card to-card/50 rounded-2xl shadow-xl border border-border/50 backdrop-blur-sm">
+            <div className="max-w-md mx-auto space-y-6">
+              <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                <Briefcase className="w-8 h-8 text-primary" />
+              </div>
+              <div className="space-y-3">
+                <h2 className="text-2xl font-bold text-card-foreground">Ready for your next adventure?</h2>
+                <p className="text-foreground/70 leading-relaxed">
+                  Create your first trip to start organizing expenses, planning activities, and sharing memories with your travel companions.
+                </p>
+              </div>
+              <Button 
+                onClick={() => setIsCreateTripDialogOpen(true)}
+                size="lg" 
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <PlusCircle className="mr-2 h-5 w-5" /> Create Your First Trip
+              </Button>
+            </div>
           </div>
         )}
 
         {!isLoadingTrips && trips.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {trips.map(trip => (
-              <TripCard key={trip.id} trip={trip} />
-            ))}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-1 h-6 bg-primary rounded-full"></div>
+                <span className="text-lg font-medium text-foreground/80">
+                  {trips.length} trip{trips.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+              {trips.map((trip, index) => (
+                <div 
+                  key={trip.id} 
+                  className="animate-in fade-in-0 slide-in-from-bottom-4 fill-mode-both"
+                  style={{ animationDelay: `${index * 100}ms`, animationDuration: '600ms' }}
+                >
+                  <TripCard trip={trip} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </main>
-      <footer className="text-center p-4 text-muted-foreground text-sm border-t border-border/50">
-        TripSplit &copy; {new Date().getFullYear()}
+      <footer className="border-t border-border/30 bg-card/30 backdrop-blur-sm">
+        <div className="container mx-auto px-4 md:px-8 lg:px-12 py-6">
+          <div className="text-center space-y-2">
+            <p className="text-foreground/60 text-sm font-medium">
+              TripSplit &copy; {new Date().getFullYear()}
+            </p>
+            <p className="text-foreground/40 text-xs">
+              Split expenses, share memories, travel together.
+            </p>
+          </div>
+        </div>
       </footer>
     </div>
   );

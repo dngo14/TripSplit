@@ -46,35 +46,56 @@ export function TripCard({ trip }: TripCardProps) {
   return (
     <Link href={`/trip/${trip.id}`} passHref legacyBehavior>
       <a className="block group">
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-200 h-full flex flex-col bg-card/80 hover:bg-card/95 cursor-pointer">
-          <CardHeader>
-            <CardTitle className="text-lg group-hover:text-primary transition-colors">{trip.tripName}</CardTitle>
-            {lastUpdatedDate && isValid(lastUpdatedDate) && (
-              <CardDescription className="text-xs">
-                Last updated: {formatDistanceToNow(lastUpdatedDate, { addSuffix: true })}
-              </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="flex-grow space-y-2 text-sm text-muted-foreground">
-            <div className="flex items-center">
-              <Users className="mr-2 h-4 w-4 flex-shrink-0" />
-              <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+        <Card className="relative overflow-hidden bg-gradient-to-br from-card to-card/80 shadow-lg hover:shadow-2xl transition-all duration-300 h-full flex flex-col cursor-pointer border border-border/50 hover:border-primary/30 group-hover:scale-[1.02] transform-gpu">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <CardHeader className="relative z-10 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <CardTitle className="text-xl font-bold group-hover:text-primary transition-colors duration-200 leading-tight">
+                {trip.tripName}
+              </CardTitle>
+              {lastUpdatedDate && isValid(lastUpdatedDate) && (
+                <div className="flex-shrink-0 px-2 py-1 bg-secondary/50 rounded-full">
+                  <CardDescription className="text-xs font-medium">
+                    {formatDistanceToNow(lastUpdatedDate, { addSuffix: true })}
+                  </CardDescription>
+                </div>
+              )}
             </div>
-            {destinationDisplay && (
-                <div className="flex items-center">
-                    <MapPin className="mr-2 h-4 w-4 flex-shrink-0" />
-                    <span>{destinationDisplay}</span>
+          </CardHeader>
+          <CardContent className="relative z-10 flex-grow space-y-4 pb-6">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 text-sm text-foreground/80">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Users className="h-4 w-4 text-primary" />
                 </div>
-            )}
-            {tripDateDisplay && (
-                <div className="flex items-center">
-                    <CalendarDays className="mr-2 h-4 w-4 flex-shrink-0" />
-                    <span>{tripDateDisplay}</span>
+                <span className="font-medium">{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+              </div>
+              {destinationDisplay && (
+                <div className="flex items-center gap-3 text-sm text-foreground/80">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                    <MapPin className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="font-medium truncate">{destinationDisplay}</span>
                 </div>
-            )}
+              )}
+              {tripDateDisplay && (
+                <div className="flex items-center gap-3 text-sm text-foreground/80">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="font-medium">{tripDateDisplay}</span>
+                </div>
+              )}
+            </div>
           </CardContent>
-          <div className="p-4 pt-2 flex justify-end items-center text-primary group-hover:underline">
-            View Trip <ArrowRight className="ml-1 h-4 w-4" />
+          <div className="relative z-10 border-t border-border/30 bg-secondary/20 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground/70">View Details</span>
+              <div className="flex items-center gap-2 text-primary group-hover:gap-3 transition-all duration-200">
+                <span className="text-sm font-semibold">Open Trip</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+              </div>
+            </div>
           </div>
         </Card>
       </a>

@@ -56,8 +56,8 @@ export function SpendingByCategoryChart({ expenses, tripCurrency }: SpendingByCa
   }
 
   return (
-    <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
-      <ResponsiveContainer width="100%" height={300}>
+    <ChartContainer config={chartConfig} className="min-h-[350px] w-full">
+      <ResponsiveContainer width="100%" height={400}>
         <PieChart>
           <Tooltip
             cursor={false}
@@ -68,8 +68,9 @@ export function SpendingByCategoryChart({ expenses, tripCurrency }: SpendingByCa
             dataKey="value"
             nameKey="name"
             cx="50%"
-            cy="50%"
-            outerRadius={70} // Reduced outerRadius
+            cy="45%"
+            outerRadius={120}
+            innerRadius={40}
             labelLine={false}
           >
             {chartData.map((entry) => (
