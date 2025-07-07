@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Coins, LogIn, LogOut } from 'lucide-react';
+import { Coins, LogIn, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,6 +40,11 @@ export function AppHeader({ tripName }: HeaderProps) {
               {!loading && (
                 <div className="flex items-center gap-3">
                   <span className="text-sm hidden md:inline text-foreground/70 font-medium">{user.displayName || user.email}</span>
+                  <Link href="/profile">
+                    <Button variant="ghost" size="sm" className="hover:bg-primary/10">
+                      <User className="mr-1 h-4 w-4" /> Profile
+                    </Button>
+                  </Link>
                   <Button variant="outline" size="sm" onClick={signOut} className="border-primary/50 hover:bg-primary/10">
                     <LogOut className="mr-1 h-4 w-4" /> Logout
                   </Button>

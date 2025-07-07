@@ -39,6 +39,7 @@ next-env.d.ts
 
 .genkit/*
 .env*
+CLAUDE.md
 
 # firebase
 firebase-debug.log

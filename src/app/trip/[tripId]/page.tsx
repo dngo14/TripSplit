@@ -33,6 +33,7 @@ import { EditItineraryItemDialog } from '@/components/trip/EditItineraryItemDial
 import { ItineraryList } from '@/components/trip/ItineraryList';
 import { TripInfo } from '@/components/trip/TripInfo';
 import { AiTripIdeation } from '@/components/trip/AiTripIdeation';
+import { AiAssistant } from '@/components/trip/AiAssistant';
 import { SettlementLogDialog } from '@/components/trip/SettlementLogDialog';
 import { SpendingOverTimeChart } from '@/components/trip/charts/SpendingOverTimeChart';
 import { SpendingByMemberChart } from '@/components/trip/charts/SpendingByMemberChart';
@@ -851,6 +852,9 @@ export default function TripDetailPage() {
                 <TabsTrigger value="ai-plan" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
                   <Wand2 className="mr-2 h-4 w-4" />Plan with AI
                 </TabsTrigger>
+                <TabsTrigger value="ai-assistant" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
+                  <Wand2 className="mr-2 h-4 w-4" />AI Assistant
+                </TabsTrigger>
                 <TabsTrigger value="chat" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
                   <MessageSquare className="mr-2 h-4 w-4" />Trip Chat
                 </TabsTrigger>
@@ -969,6 +973,10 @@ export default function TripDetailPage() {
 
           <TabsContent value="ai-plan">
             <AiTripIdeation />
+          </TabsContent>
+
+          <TabsContent value="ai-assistant">
+            <AiAssistant tripData={activeTrip} />
           </TabsContent>
 
           <TabsContent value="chat">
